@@ -1,501 +1,504 @@
-import React, { useState, useEffect } from 'react'
-import { useChainStore } from '../../../store/ChainStore'
-import { useWalletStore } from '../../../store/WalletStore'
+import React, { useState, useEffect } from 'react';
+import { useNetworkStore } from '@/stores/networkStore';
+import { Network } from '@/types/wallet';
 
-interface NetworkConfig {
-  chainId: string
-  chainName: string
-  nativeCurrency: {
-    name: string
-    symbol: string
-    decimals: number
-  }
-  rpcUrls: string[]
-  blockExplorerUrls?: string[]
-  icon: string
-  isTestnet?: boolean
-  isCustom?: boolean
-}
+export const NetworkManagerPage: React.FC = () => {
+  const {
+    currentNetwork,
+    networks,
+    isLoading,
+    connectionStatus,
+    lastError,
+    switchNetwork,
+    addNetwork,
+    removeNetwork,
+    updateNetwork,
+    testConnection,
+    validateNetwork
+  } = useNetworkStore();
 
-interface AddNetworkForm {
-  chainName: string
-  rpcUrl: string
-  chainId: string
-  symbol: string
-  name: string
-  decimals: string
-  blockExplorerUrl: string
-}
-
-export const NetworkManagerPage = () => {
-  const chainStore = useChainStore()
-  const walletStore = useWalletStore()
-  const [networks, setNetworks] = useState<NetworkConfig[]>([])
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [switchingNetwork, setSwitchingNetwork] = useState<string | null>(null)
-  const [error, setError] = useState<string>('')
-
-  // 添加网络表单状态
-  const [addForm, setAddForm] = useState<AddNetworkForm>({
-    chainName: '',
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingNetwork, setEditingNetwork] = useState<Network | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, boolean>>({});
+  const [formData, setFormData] = useState({
+    id: '',
+    name: '',
     rpcUrl: '',
     chainId: '',
     symbol: '',
-    name: '',
-    decimals: '18',
     blockExplorerUrl: ''
-  })
+  });
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    loadNetworks()
-  }, [])
+    // Test all network connections on mount
+    testAllConnections();
+  }, []);
 
-  const loadNetworks = async () => {
-    setLoading(true)
-    try {
-      // 获取内置网络配置
-      const builtInNetworks = chainStore.getAllNetworks()
-
-      // TODO: 从存储中加载自定义网络
-      const customNetworks: NetworkConfig[] = []
-
-      setNetworks([...builtInNetworks, ...customNetworks])
-    } catch (err) {
-      console.error('加载网络列表失败:', err)
-      setError('加载网络列表失败')
-    } finally {
-      setLoading(false)
+  const testAllConnections = async () => {
+    const results: Record<string, boolean> = {};
+    for (const network of networks) {
+      results[network.id] = await testConnection(network.id);
     }
-  }
+    setTestResults(results);
+  };
 
-  const handleSwitchNetwork = async (chainId: string) => {
-    setSwitchingNetwork(chainId)
-    setError('')
-
-    try {
-      await chainStore.connectToNetwork(chainId)
-      console.log('已切换到网络:', chainId)
-    } catch (err) {
-      console.error('切换网络失败:', err)
-      setError(err instanceof Error ? err.message : '切换网络失败')
-    } finally {
-      setSwitchingNetwork(null)
-    }
-  }
+  const validateForm = () => {
+    const validation = validateNetwork(formData);
+    setValidationErrors(validation.errors);
+    return validation.isValid;
+  };
 
   const handleAddNetwork = async () => {
-    setError('')
+    if (!validateForm()) return;
 
-    // 验证表单
-    if (!addForm.chainName || !addForm.rpcUrl || !addForm.chainId || !addForm.symbol || !addForm.name) {
-      setError('请填写所有必需字段')
-      return
+    setIsSubmitting(true);
+    try {
+      await addNetwork(formData as Network);
+      setShowAddForm(false);
+      resetForm();
+      alert('网络添加成功！');
+      // Test the new network
+      const result = await testConnection(formData.id);
+      setTestResults(prev => ({ ...prev, [formData.id]: result }));
+    } catch (error) {
+      alert(`添加网络失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleUpdateNetwork = async () => {
+    if (!editingNetwork || !validateForm()) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateNetwork(editingNetwork.id, formData);
+      setEditingNetwork(null);
+      resetForm();
+      alert('网络更新成功！');
+      // Test the updated network
+      const result = await testConnection(editingNetwork.id);
+      setTestResults(prev => ({ ...prev, [editingNetwork.id]: result }));
+    } catch (error) {
+      alert(`更新网络失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteNetwork = async (networkId: string) => {
+    if (!confirm('确定要删除这个网络吗？此操作不可撤销。')) return;
 
     try {
-      // 验证 ChainId
-      const chainIdNum = parseInt(addForm.chainId)
-      if (isNaN(chainIdNum) || chainIdNum <= 0) {
-        setError('无效的链ID')
-        return
-      }
-
-      // 验证 RPC URL
-      try {
-        new URL(addForm.rpcUrl)
-      } catch {
-        setError('无效的RPC URL')
-        return
-      }
-
-      // TODO: 实现真实的网络添加逻辑
-      const newNetwork: NetworkConfig = {
-        chainId: `0x${chainIdNum.toString(16)}`,
-        chainName: addForm.chainName,
-        nativeCurrency: {
-          name: addForm.name,
-          symbol: addForm.symbol,
-          decimals: parseInt(addForm.decimals) || 18
-        },
-        rpcUrls: [addForm.rpcUrl],
-        blockExplorerUrls: addForm.blockExplorerUrl ? [addForm.blockExplorerUrl] : undefined,
-        icon: '🌐',
-        isCustom: true
-      }
-
-      // 模拟添加
-      setNetworks(prev => [...prev, newNetwork])
-      setShowAddModal(false)
-      resetForm()
-
-      console.log('添加网络成功:', newNetwork)
-    } catch (err) {
-      console.error('添加网络失败:', err)
-      setError(err instanceof Error ? err.message : '添加网络失败')
+      await removeNetwork(networkId);
+      alert('网络删除成功！');
+      setTestResults(prev => {
+        const newResults = { ...prev };
+        delete newResults[networkId];
+        return newResults;
+      });
+    } catch (error) {
+      alert(`删除网络失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
-  }
+  };
 
-  const handleRemoveNetwork = async (chainId: string) => {
-    if (!confirm('确定要删除这个网络吗？')) return
+  const handleSwitchNetwork = async (networkId: string) => {
+    if (isLoading || networkId === currentNetwork.id) return;
 
     try {
-      // TODO: 实现真实的网络删除逻辑
-      setNetworks(prev => prev.filter(n => n.chainId !== chainId))
-      console.log('删除网络成功:', chainId)
-    } catch (err) {
-      console.error('删除网络失败:', err)
-      setError(err instanceof Error ? err.message : '删除网络失败')
+      await switchNetwork(networkId);
+      alert(`已切换到 ${networks.find(n => n.id === networkId)?.name}`);
+      // Test the connection after switching
+      const result = await testConnection(networkId);
+      setTestResults(prev => ({ ...prev, [networkId]: result }));
+    } catch (error) {
+      alert(`切换网络失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
-  }
+  };
 
-  const handleTestRpc = async () => {
-    if (!addForm.rpcUrl) {
-      setError('请先输入 RPC URL')
-      return
-    }
+  const handleTestConnection = async (networkId: string) => {
+    const result = await testConnection(networkId);
+    setTestResults(prev => ({ ...prev, [networkId]: result }));
+    alert(result ? '连接测试成功！' : '连接测试失败！');
+  };
 
-    try {
-      setError('测试 RPC 连接中...')
-
-      // TODO: 实现真实的 RPC 测试逻辑
-      // 模拟测试
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      setError('')
-      alert('RPC 连接测试成功！')
-    } catch (err) {
-      console.error('RPC 测试失败:', err)
-      setError('RPC 连接测试失败')
-    }
-  }
+  const startEdit = (network: Network) => {
+    setEditingNetwork(network);
+    setFormData({
+      id: network.id,
+      name: network.name,
+      rpcUrl: network.rpcUrl,
+      chainId: network.chainId.toString(),
+      symbol: network.symbol,
+      blockExplorerUrl: network.blockExplorerUrl || ''
+    });
+    setValidationErrors([]);
+  };
 
   const resetForm = () => {
-    setAddForm({
-      chainName: '',
+    setFormData({
+      id: '',
+      name: '',
       rpcUrl: '',
       chainId: '',
       symbol: '',
-      name: '',
-      decimals: '18',
       blockExplorerUrl: ''
-    })
-  }
+    });
+    setValidationErrors([]);
+  };
 
-  const getCurrentChainId = () => chainStore.currentChainId
-
-  const formatChainId = (chainId: string) => {
-    if (chainId.startsWith('0x')) {
-      return parseInt(chainId, 16).toString()
-    }
-    return chainId
-  }
-
-  const getConnectionStatus = (chainId: string) => {
-    const currentChainId = getCurrentChainId()
-    const isConnected = chainStore.connectionState.isConnected
-    return currentChainId === chainId && isConnected
-  }
-
-  if (loading) {
-    return (
-      <div className="plasmo-p-4 plasmo-bg-white plasmo-min-h-screen plasmo-flex plasmo-items-center plasmo-justify-center">
-        <div className="plasmo-text-center">
-          <div className="plasmo-w-8 plasmo-h-8 plasmo-border-2 plasmo-border-blue-600 plasmo-border-t-transparent plasmo-rounded-full plasmo-animate-spin plasmo-mx-auto plasmo-mb-4"></div>
-          <p className="plasmo-text-gray-600">加载中...</p>
-        </div>
-      </div>
-    )
-  }
+  const isDefaultNetwork = (networkId: string) => {
+    return ['ethereum', 'sepolia', 'polygon', 'polygon-amoy'].includes(networkId);
+  };
 
   return (
-    <div className="plasmo-p-4 plasmo-bg-white plasmo-min-h-screen">
-      {/* 页面标题 */}
-      <div className="plasmo-text-center plasmo-mb-6">
-        <div className="plasmo-w-12 plasmo-h-12 plasmo-bg-blue-100 plasmo-rounded-full plasmo-flex plasmo-items-center plasmo-justify-center plasmo-mx-auto plasmo-mb-3">
-          <span className="plasmo-text-2xl">🌐</span>
-        </div>
-        <h1 className="plasmo-text-xl plasmo-font-bold plasmo-mb-2">
-          网络管理
-        </h1>
-        <p className="plasmo-text-gray-600 plasmo-text-sm">
-          管理区块链网络连接
-        </p>
-      </div>
-
-      {/* 当前网络状态 */}
-      <div className="plasmo-bg-blue-50 plasmo-p-4 plasmo-rounded-lg plasmo-mb-6">
-        <div className="plasmo-flex plasmo-items-center plasmo-justify-between">
+    <div className="w-full h-full bg-white p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <p className="plasmo-text-sm plasmo-font-medium plasmo-mb-1">当前网络</p>
-            <div className="plasmo-flex plasmo-items-center plasmo-space-x-2">
-              <span className="plasmo-text-lg">
-                {chainStore.getNetworkConfig(getCurrentChainId())?.icon || '🌐'}
-              </span>
-              <span className="plasmo-font-medium">
-                {chainStore.getNetworkConfig(getCurrentChainId())?.chainName || 'Unknown Network'}
-              </span>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">网络管理</h1>
+            <p className="text-gray-600 mt-1">管理您的区块链网络配置</p>
           </div>
-          <div className="plasmo-text-right">
-            <div className="plasmo-flex plasmo-items-center plasmo-space-x-2 plasmo-mb-1">
-              <div className={`plasmo-w-2 plasmo-h-2 plasmo-rounded-full ${
-                chainStore.connectionState.isConnected ? 'plasmo-bg-green-500' : 'plasmo-bg-red-500'
-              }`}></div>
-              <span className="plasmo-text-sm">
-                {chainStore.connectionState.isConnected ? '已连接' : '未连接'}
-              </span>
-            </div>
-            <p className="plasmo-text-xs plasmo-text-gray-500">
-              Chain ID: {formatChainId(getCurrentChainId())}
-            </p>
-            {chainStore.connectionState.latency && (
-              <p className="plasmo-text-xs plasmo-text-gray-500">
-                延迟: {chainStore.connectionState.latency}ms
-              </p>
-            )}
+          <div className="flex space-x-3">
+            <button
+              onClick={testAllConnections}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+              🔄 测试所有连接
+            </button>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              ➕ 添加网络
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* 错误提示 */}
-      {error && (
-        <div className="plasmo-bg-red-50 plasmo-border plasmo-border-red-200 plasmo-p-3 plasmo-rounded-lg plasmo-mb-4">
-          <p className="plasmo-text-sm plasmo-text-red-800">
-            ❌ {error}
-          </p>
+        {/* Current Network Status */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white mb-6">
+          <h2 className="text-lg font-semibold mb-4">当前网络</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xl font-bold">{currentNetwork.name}</div>
+              <div className="text-white/80">
+                Chain ID: {currentNetwork.chainId} • {currentNetwork.symbol}
+              </div>
+              <div className="text-white/60 text-sm mt-1">
+                {currentNetwork.rpcUrl}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
+                connectionStatus === 'connected'
+                  ? 'bg-green-500 text-white'
+                  : connectionStatus === 'connecting'
+                  ? 'bg-yellow-500 text-white'
+                  : 'bg-red-500 text-white'
+              }`}>
+                {connectionStatus === 'connected' && '✓ 已连接'}
+                {connectionStatus === 'connecting' && '⟳ 连接中'}
+                {connectionStatus === 'error' && '✗ 连接失败'}
+                {connectionStatus === 'disconnected' && '○ 未连接'}
+              </div>
+              {lastError && (
+                <div className="text-red-200 text-sm mt-2 max-w-xs">
+                  {lastError}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* 网络列表 */}
-      <div className="plasmo-mb-6">
-        <div className="plasmo-flex plasmo-items-center plasmo-justify-between plasmo-mb-4">
-          <h2 className="plasmo-text-lg plasmo-font-semibold">可用网络</h2>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="plasmo-bg-blue-600 plasmo-text-white plasmo-px-4 plasmo-py-2 plasmo-rounded-lg plasmo-text-sm hover:plasmo-bg-blue-700 plasmo-transition-colors">
-            + 添加网络
-          </button>
-        </div>
+        {/* Network List */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">所有网络</h2>
 
-        <div className="plasmo-space-y-3">
-          {networks.map(network => {
-            const isConnected = getConnectionStatus(network.chainId)
-            const isCurrent = getCurrentChainId() === network.chainId
-
-            return (
-              <div
-                key={network.chainId}
-                className={`plasmo-p-4 plasmo-rounded-lg plasmo-border-2 ${
-                  isCurrent
-                    ? 'plasmo-bg-blue-50 plasmo-border-blue-300'
-                    : 'plasmo-bg-white plasmo-border-gray-200'
-                }`}
-              >
-                <div className="plasmo-flex plasmo-items-center plasmo-justify-between">
-                  <div className="plasmo-flex plasmo-items-center plasmo-space-x-3">
-                    <span className="plasmo-text-2xl">{network.icon}</span>
+          {networks.map((network) => (
+            <div
+              key={network.id}
+              className={`border rounded-lg p-4 ${
+                network.id === currentNetwork.id
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 bg-white'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl">🌐</span>
                     <div>
-                      <div className="plasmo-flex plasmo-items-center plasmo-space-x-2">
-                        <h3 className="plasmo-font-semibold">{network.chainName}</h3>
-                        {network.isTestnet && (
-                          <span className="plasmo-px-2 plasmo-py-1 plasmo-bg-yellow-100 plasmo-text-yellow-700 plasmo-text-xs plasmo-rounded">
-                            测试网
-                          </span>
-                        )}
-                        {network.isCustom && (
-                          <span className="plasmo-px-2 plasmo-py-1 plasmo-bg-purple-100 plasmo-text-purple-700 plasmo-text-xs plasmo-rounded">
-                            自定义
-                          </span>
-                        )}
-                        {isCurrent && (
-                          <span className="plasmo-px-2 plasmo-py-1 plasmo-bg-green-100 plasmo-text-green-700 plasmo-text-xs plasmo-rounded">
-                            当前
-                          </span>
-                        )}
+                      <div className="font-medium text-gray-900">{network.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {network.symbol} • Chain ID: {network.chainId}
                       </div>
-                      <p className="plasmo-text-sm plasmo-text-gray-600">
-                        {network.nativeCurrency.symbol} • Chain ID: {formatChainId(network.chainId)}
-                      </p>
-                      {network.rpcUrls.length > 0 && (
-                        <p className="plasmo-text-xs plasmo-text-gray-500">
-                          RPC: {network.rpcUrls[0]}
-                        </p>
-                      )}
+                      <div className="text-xs text-gray-500 mt-1">
+                        {network.rpcUrl}
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="plasmo-flex plasmo-items-center plasmo-space-x-2">
-                    {isConnected && (
-                      <div className="plasmo-w-2 plasmo-h-2 plasmo-bg-green-500 plasmo-rounded-full"></div>
+                <div className="flex items-center space-x-2">
+                  {/* Connection Status */}
+                  <div className={`flex items-center space-x-1 px-2 py-1 rounded text-xs ${
+                    testResults[network.id] === true
+                      ? 'bg-green-100 text-green-700'
+                      : testResults[network.id] === false
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full ${
+                      testResults[network.id] === true
+                        ? 'bg-green-500'
+                        : testResults[network.id] === false
+                        ? 'bg-red-500'
+                        : 'bg-gray-400'
+                    }`}></div>
+                    <span>
+                      {testResults[network.id] === true && '连接正常'}
+                      {testResults[network.id] === false && '连接失败'}
+                      {testResults[network.id] === undefined && '未测试'}
+                    </span>
+                  </div>
+
+                  {/* Current Network Badge */}
+                  {network.id === currentNetwork.id && (
+                    <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                      当前
+                    </span>
+                  )}
+
+                  {/* Default Network Badge */}
+                  {isDefaultNetwork(network.id) && (
+                    <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
+                      默认
+                    </span>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex space-x-1">
+                    <button
+                      onClick={() => handleTestConnection(network.id)}
+                      className="text-blue-600 hover:text-blue-700 p-1 text-sm"
+                      title="测试连接">
+                      🔄
+                    </button>
+
+                    {network.id !== currentNetwork.id && (
+                      <button
+                        onClick={() => handleSwitchNetwork(network.id)}
+                        disabled={isLoading}
+                        className="text-green-600 hover:text-green-700 p-1 text-sm disabled:opacity-50"
+                        title="切换网络">
+                        ⚡
+                      </button>
                     )}
 
-                    {!isCurrent ? (
-                      <button
-                        onClick={() => handleSwitchNetwork(network.chainId)}
-                        disabled={switchingNetwork === network.chainId}
-                        className="plasmo-bg-blue-600 plasmo-text-white plasmo-px-3 plasmo-py-2 plasmo-rounded plasmo-text-sm hover:plasmo-bg-blue-700 disabled:plasmo-opacity-50 disabled:plasmo-cursor-not-allowed">
-                        {switchingNetwork === network.chainId ? (
-                          <div className="plasmo-flex plasmo-items-center plasmo-space-x-2">
-                            <div className="plasmo-w-3 plasmo-h-3 plasmo-border-2 plasmo-border-white plasmo-border-t-transparent plasmo-rounded-full plasmo-animate-spin"></div>
-                            <span>切换中</span>
-                          </div>
-                        ) : (
-                          '切换'
-                        )}
-                      </button>
-                    ) : (
-                      <span className="plasmo-text-green-600 plasmo-text-sm plasmo-font-medium">
-                        已连接
-                      </span>
-                    )}
-
-                    {network.isCustom && (
-                      <button
-                        onClick={() => handleRemoveNetwork(network.chainId)}
-                        className="plasmo-bg-red-100 plasmo-text-red-700 plasmo-px-3 plasmo-py-2 plasmo-rounded plasmo-text-sm hover:plasmo-bg-red-200 plasmo-transition-colors">
-                        删除
-                      </button>
+                    {!isDefaultNetwork(network.id) && (
+                      <>
+                        <button
+                          onClick={() => startEdit(network)}
+                          className="text-yellow-600 hover:text-yellow-700 p-1 text-sm"
+                          title="编辑网络">
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNetwork(network.id)}
+                          className="text-red-600 hover:text-red-700 p-1 text-sm"
+                          title="删除网络">
+                          🗑️
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
               </div>
-            )
-          })}
+
+              {/* Block Explorer */}
+              {network.blockExplorerUrl && (
+                <div className="mt-3 text-xs text-gray-500">
+                  区块浏览器: {new URL(network.blockExplorerUrl).hostname}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
-      </div>
 
-      {/* 添加网络模态框 */}
-      {showAddModal && (
-        <div className="plasmo-fixed plasmo-inset-0 plasmo-bg-black plasmo-bg-opacity-50 plasmo-flex plasmo-items-center plasmo-justify-center plasmo-p-4 plasmo-z-50">
-          <div className="plasmo-bg-white plasmo-p-6 plasmo-rounded-lg plasmo-max-w-md plasmo-w-full plasmo-max-h-[90vh] plasmo-overflow-y-auto">
-            <h3 className="plasmo-text-lg plasmo-font-bold plasmo-mb-4">添加自定义网络</h3>
+        {/* Add/Edit Network Form */}
+        {(showAddForm || editingNetwork) && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg p-6 m-4 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-bold mb-4">
+                {editingNetwork ? '编辑网络' : '添加新网络'}
+              </h3>
 
-            <div className="plasmo-space-y-4">
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  网络名称 *
-                </label>
-                <input
-                  type="text"
-                  value={addForm.chainName}
-                  onChange={(e) => setAddForm(prev => ({ ...prev, chainName: e.target.value }))}
-                  placeholder="例如: Ethereum Mainnet"
-                  className="plasmo-w-full plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
-                />
-              </div>
+              {validationErrors.length > 0 && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-600 font-medium mb-1">请修正以下错误:</p>
+                  <ul className="text-sm text-red-600 list-disc list-inside">
+                    {validationErrors.map((error, index) => (
+                      <li key={index}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  新 RPC URL *
-                </label>
-                <div className="plasmo-flex plasmo-space-x-2">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    网络ID *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.id}
+                    onChange={(e) => {
+                      setFormData({ ...formData, id: e.target.value });
+                      setValidationErrors([]);
+                    }}
+                    disabled={!!editingNetwork}
+                    placeholder="my-custom-network"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  />
+                  {editingNetwork && (
+                    <p className="text-xs text-gray-500 mt-1">网络ID不可修改</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    网络名称 *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      setValidationErrors([]);
+                    }}
+                    placeholder="My Custom Network"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    RPC URL *
+                  </label>
                   <input
                     type="url"
-                    value={addForm.rpcUrl}
-                    onChange={(e) => setAddForm(prev => ({ ...prev, rpcUrl: e.target.value }))}
-                    placeholder="https://mainnet.infura.io/v3/..."
-                    className="plasmo-flex-1 plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
+                    value={formData.rpcUrl}
+                    onChange={(e) => {
+                      setFormData({ ...formData, rpcUrl: e.target.value });
+                      setValidationErrors([]);
+                    }}
+                    placeholder="https://..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Chain ID *
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.chainId}
+                    onChange={(e) => {
+                      setFormData({ ...formData, chainId: e.target.value });
+                      setValidationErrors([]);
+                    }}
+                    placeholder="1"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    代币符号 *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.symbol}
+                    onChange={(e) => {
+                      setFormData({ ...formData, symbol: e.target.value });
+                      setValidationErrors([]);
+                    }}
+                    placeholder="ETH"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    区块浏览器 (可选)
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.blockExplorerUrl}
+                    onChange={(e) => {
+                      setFormData({ ...formData, blockExplorerUrl: e.target.value });
+                      setValidationErrors([]);
+                    }}
+                    placeholder="https://etherscan.io"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex space-x-3 pt-4">
                   <button
-                    onClick={handleTestRpc}
-                    className="plasmo-bg-gray-100 plasmo-text-gray-700 plasmo-px-4 plasmo-py-2 plasmo-rounded-lg plasmo-text-sm hover:plasmo-bg-gray-200">
-                    测试
+                    onClick={editingNetwork ? handleUpdateNetwork : handleAddNetwork}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isSubmitting ? '处理中...' : (editingNetwork ? '更新网络' : '添加网络')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEditingNetwork(null);
+                      resetForm();
+                    }}
+                    className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    取消
                   </button>
                 </div>
               </div>
-
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  链 ID *
-                </label>
-                <input
-                  type="text"
-                  value={addForm.chainId}
-                  onChange={(e) => setAddForm(prev => ({ ...prev, chainId: e.target.value }))}
-                  placeholder="例如: 1"
-                  className="plasmo-w-full plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
-                />
-              </div>
-
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  货币符号 *
-                </label>
-                <input
-                  type="text"
-                  value={addForm.symbol}
-                  onChange={(e) => setAddForm(prev => ({ ...prev, symbol: e.target.value }))}
-                  placeholder="例如: ETH"
-                  className="plasmo-w-full plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
-                />
-              </div>
-
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  货币名称 *
-                </label>
-                <input
-                  type="text"
-                  value={addForm.name}
-                  onChange={(e) => setAddForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="例如: Ethereum"
-                  className="plasmo-w-full plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
-                />
-              </div>
-
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  小数位数
-                </label>
-                <input
-                  type="number"
-                  value={addForm.decimals}
-                  onChange={(e) => setAddForm(prev => ({ ...prev, decimals: e.target.value }))}
-                  placeholder="18"
-                  min="0"
-                  max="36"
-                  className="plasmo-w-full plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
-                />
-              </div>
-
-              <div>
-                <label className="plasmo-block plasmo-text-sm plasmo-font-medium plasmo-mb-2">
-                  区块浏览器 URL (可选)
-                </label>
-                <input
-                  type="url"
-                  value={addForm.blockExplorerUrl}
-                  onChange={(e) => setAddForm(prev => ({ ...prev, blockExplorerUrl: e.target.value }))}
-                  placeholder="https://etherscan.io"
-                  className="plasmo-w-full plasmo-border plasmo-border-gray-300 plasmo-rounded-lg plasmo-px-3 plasmo-py-2"
-                />
-              </div>
             </div>
+          </div>
+        )}
 
-            <div className="plasmo-grid plasmo-grid-cols-2 plasmo-gap-3 plasmo-mt-6">
-              <button
-                onClick={() => {
-                  setShowAddModal(false)
-                  resetForm()
-                  setError('')
-                }}
-                className="plasmo-bg-gray-100 plasmo-text-gray-700 plasmo-px-4 plasmo-py-2 plasmo-rounded plasmo-text-sm hover:plasmo-bg-gray-200">
-                取消
-              </button>
-              <button
-                onClick={handleAddNetwork}
-                className="plasmo-bg-blue-600 plasmo-text-white plasmo-px-4 plasmo-py-2 plasmo-rounded plasmo-text-sm hover:plasmo-bg-blue-700">
-                保存
-              </button>
+        {/* Statistics */}
+        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+          <h3 className="text-sm font-medium text-gray-700 mb-2">网络统计</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">总网络数:</span>
+              <span className="ml-2 font-medium">{networks.length}</span>
+            </div>
+            <div>
+              <span className="text-gray-600">连接正常:</span>
+              <span className="ml-2 font-medium text-green-600">
+                {Object.values(testResults).filter(r => r === true).length}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">连接失败:</span>
+              <span className="ml-2 font-medium text-red-600">
+                {Object.values(testResults).filter(r => r === false).length}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">未测试:</span>
+              <span className="ml-2 font-medium text-gray-600">
+                {networks.length - Object.keys(testResults).length}
+              </span>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
-  )
-}
+  );
+};
 
 export default NetworkManagerPage

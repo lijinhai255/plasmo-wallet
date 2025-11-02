@@ -331,6 +331,7 @@
             btn.innerHTML = '<span class="loading"></span> 连接中...';
 
             try {
+                // const plasmoProvider = window.myWallet
                 const plasmoProvider = window.myWallet
 
                 if (!plasmoProvider) {
@@ -381,6 +382,7 @@
                     accounts = await plasmoProvider.request({
                         method: 'eth_accounts'
                     });
+
                 } else if (plasmoProvider.getAccount) {
                     // 使用自定义getAccount方法
                     const account = await plasmoProvider.getAccount();
@@ -406,7 +408,6 @@
                 log('🔗 开始测试获取链ID...');
 
                 let chainId;
-
                 // 优先使用标准EIP-1193方法
                 if (plasmoProvider.request) {
                     chainId = await plasmoProvider.request({
@@ -428,7 +429,7 @@
 
         async function testGetBalance() {
             try {
-                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+               const plasmoProvider = window.myWallet
 
                 if (!plasmoProvider) {
                     throw new Error('未检测到PlasmoWallet接口');

@@ -2,7 +2,7 @@ import React from "react"
 import { useWalletStore } from "./stores/walletStore";
 import { WalletSetup } from "./components/WalletSetup";
 import { WalletUnlock } from "./components/WalletUnlock";
-import { WalletDashboard } from "./components/WalletDashboard";
+import { Router } from "./components/Router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./style.css";
 
@@ -38,7 +38,7 @@ export default function popup() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="w-[400px] min-h-[600px] bg-white">
-        <WalletDashboard />
+        <Router initialPath="/" />
       </div>
     </QueryClientProvider>
   )

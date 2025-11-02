@@ -1,5 +1,6 @@
 import React from 'react'
 import { routes, getVisibleRoutes } from '~router/index'
+import { cn } from '@/lib/utils'
 
 interface BottomNavigationProps {
   currentPath: string
@@ -25,8 +26,8 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ currentPath,
   }
 
   return (
-    <div className="plasmo-fixed plasmo-bottom-0 plasmo-left-0 plasmo-right-0 plasmo-bg-white plasmo-border-t plasmo-border-gray-200 plasmo-px-1 plasmo-py-1 plasmo-z-50">
-      <div className="plasmo-flex plasmo-justify-around plasmo-items-center">
+    <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-gray-200/60 px-3 py-3 z-50 shadow-2xl">
+      <div className="flex justify-around items-center max-w-md mx-auto">
         {navigationRoutes.map((route) => {
           const isActive = currentPath === route.path
 
@@ -34,27 +35,54 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ currentPath,
             <button
               key={route.path}
               onClick={() => handleNavigate(route.path)}
-              className={`plasmo-flex plasmo-flex-col plasmo-items-center plasmo-justify-center plasmo-py-1 plasmo-px-2 plasmo-rounded-lg plasmo-transition-colors plasmo-min-w-0 plasmo-flex-1 ${
-                isActive
-                  ? 'plasmo-bg-blue-50 plasmo-text-blue-600'
-                  : 'plasmo-text-gray-600 hover:plasmo-bg-gray-50 hover:plasmo-text-gray-800'
-              }`}
+              className={cn(
+                "group flex flex-col items-center justify-center py-3 px-4 rounded-2xl transition-all duration-300 min-w-0 flex-1 relative",
+                "hover:bg-gray-100/80",
+                isActive && [
+                  "bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 text-white",
+                  "shadow-xl shadow-blue-500/25 transform scale-105",
+                  "hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700"
+                ],
+                !isActive && "text-gray-600 hover:text-gray-900"
+              )}
               title={route.label}
-              style={{ minHeight: '60px' }}
             >
-              <span className="plasmo-text-lg plasmo-leading-none">
-                {route.icon}
-              </span>
-              <span className="plasmo-text-xs plasmo-mt-1 plasmo-font-medium plasmo-truncate">
+              <div className={cn(
+                "relative flex items-center justify-center w-6 h-6 mb-2 transition-transform duration-300",
+                isActive && "transform scale-110",
+                "group-hover:transform group-hover:scale-110"
+              )}>
+                <span className="text-xl leading-none">
+                  {route.icon}
+                </span>
+                {isActive && (
+                  <div className="absolute inset-0 bg-blue-400/20 rounded-full animate-ping"></div>
+                )}
+              </div>
+
+              <span className={cn(
+                "text-xs font-semibold truncate max-w-full transition-all duration-300",
+                isActive && "text-white drop-shadow-sm",
+                !isActive && "text-gray-600 group-hover:text-gray-900"
+              )}>
                 {route.label}
               </span>
+
               {isActive && (
-                <div className="plasmo-absolute plasmo-bottom-1 plasmo-left-1/2 plasmo-transform plasmo--translate-x-1/2 plasmo-w-1 plasmo-h-1 plasmo-bg-blue-600 plasmo-rounded-full"></div>
+                <div className="absolute -top-1 left-1/2 transform -translate-x-1/2">
+                  <div className="w-2 h-2 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full shadow-lg ring-2 ring-white animate-pulse"></div>
+                </div>
               )}
+
+              {/* Ripple effect on hover */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/0 to-indigo-500/0 group-hover:from-blue-500/10 group-hover:to-indigo-500/10 transition-all duration-300"></div>
             </button>
           )
         })}
       </div>
+
+      {/* Add subtle gradient border at top */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300/60 to-transparent"></div>
     </div>
   )
 }

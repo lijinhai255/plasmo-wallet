@@ -1,4 +1,5 @@
 import { useWalletStore } from '../stores/walletStore';
+import { useNetworkStore } from '../stores/networkStore';
 import injectMyWallet from './injected-helper';
 import * as constant from './type_constant';
 
@@ -44,6 +45,39 @@ const setupMessageListener = () => {
       const account = walletStore.currentAccount
       sendResponse({
         data: { account }
+      })
+      return true
+    }
+    // 获取账户余额
+    if (message.type === constant.WALLET_GET_BALANCE) {
+      const walletStore = useWalletStore.getState()
+      try {
+        walletStore.getBalance().then((balance) => {
+          sendResponse({
+            data: { balance }
+          })
+        }).catch((error) => {
+          sendResponse({
+            data: { error: error.message },
+          })
+        })
+      } catch (error) {
+        sendResponse({
+          data: { error: error instanceof Error ? error.message : '获取余额失败' },
+        })
+      }
+      return true
+    }
+
+    // 获取当前网络ChainId请求
+    if (message.type === constant.WALLET_GET_CHAIN_ID) {
+      const networkStore = useNetworkStore.getState()
+      console.log('networkStore:', networkStore);
+      const currentNetwork = networkStore.currentNetwork
+      const chainId = `0x${currentNetwork.chainId.toString(16)}`
+      sendResponse({
+        "name": "my-wallet-response",
+        data: { chainId }
       })
       return true
     }

@@ -4,6 +4,7 @@ import { AES, SHA256, enc } from 'crypto-js';
 import { ethers, Wallet, HDNodeWallet } from 'ethers';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useNetworkStore } from './networkStore';
 
 interface WalletStore extends WalletState {
   // Wallet management
@@ -35,6 +36,9 @@ interface WalletStore extends WalletState {
   connect: () => Promise<WalletAccount>;
   signMessage: (message: string) => Promise<string>;
   disconnect: () => void;
+
+  //获取当前余额逻辑
+  getBalance: () => Promise<string>;
 }
 
 const initialState: WalletState = {
@@ -309,6 +313,26 @@ export const useWalletStore = create<WalletStore>()(
       },
       disconnect: () => {
         set({ currentAccount: null, isConnected: false})
+      },
+
+      //获取当前余额逻辑
+      getBalance: async () => {
+        const state = get();
+        if (!state.currentAccount) {
+          throw new Error('没有选择账户');
+        }
+
+        try {
+          // 从 networkStore 获取当前网络
+          const { currentNetwork } = useNetworkStore.getState();
+          console.log("currentNetwork",currentNetwork)
+          const provider = new ethers.JsonRpcProvider(currentNetwork.rpcUrl);
+          const balance = await provider.getBalance(state.currentAccount.address);
+          return ethers.formatEther(balance);
+        } catch (error) {
+          console.error('获取余额失败:', error);
+          throw error;
+        }
       }
     }),
     {
