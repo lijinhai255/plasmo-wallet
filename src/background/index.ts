@@ -2,7 +2,8 @@ import { useWalletStore } from '../../store/WalletStore';
 import { useChainStore } from '../../store/ChainStore';
 import injectPlasmoWallet from './injected-helper';
 import * as constant from './type_constant';
-import { getRPCService, RPCRequest, RPCResponse } from '../services/rpc-service';
+import { getRPCService } from '../services/rpc-service';
+import type { RPCRequest, RPCResponse } from '../services/rpc-service';
 
 console.log('background 脚本启动了');
 
