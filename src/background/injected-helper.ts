@@ -1,35 +1,23 @@
-import { PlasmoEthereumProvider, createEthereumProvider } from '../services/ethereum-provider';
+/**
+ * Injected Helper - 外部 DApp 交互代理
+ * 学习参考项目的简单注入模式，只提供基础方法
+ */
 
 export default function injectPlasmoWallet() {
-  console.log("🔄 开始注入钱包提供者");
+  console.log("injected-helper");
 
-  // 暴露 PlasmoEthereumProvider 类给 window（供content script使用）
-  if (!(window as any).PlasmoEthereumProvider) {
-    console.log("🔄 暴露 PlasmoEthereumProvider 类");
-    (window as any).PlasmoEthereumProvider = PlasmoEthereumProvider;
-  }
-
-  // 防止重复注入
   if (window.plasmoWallet || window.plasmoWalletInjected) {
-    console.log("⚠️ plasmoWallet 已存在，跳过注入");
     return
-  }
-
-  // 注入标准的 window.ethereum 提供者
-  if (!window.ethereum) {
-    console.log("🔄 注入 window.ethereum 提供者");
-    window.ethereum = createEthereumProvider();
-    console.log("✅ window.ethereum 注入完成");
-  } else {
-    console.log("⚠️ window.ethereum 已存在");
   }
 
   const WALLET_CONNECT = 'WALLET_CONNECT'
   const WALLET_GET_ACCOUNT = 'WALLET_GET_ACCOUNT'
   const WALLET_SIGN_MESSAGE = 'WALLET_SIGN_MESSAGE'
   const WALLET_DISCONNECT = 'WALLET_DISCONNECT'
+
   // 请求id
   const generateRequestId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+
   const plasmoWallet = {
     // 连接钱包
     connect: async () => {
@@ -41,7 +29,6 @@ export default function injectPlasmoWallet() {
         const requestId = generateRequestId()
         console.log('requestId :', requestId);
         console.log("aaaaaa");
-
 
         console.log(WALLET_CONNECT);
 
@@ -180,27 +167,9 @@ export default function injectPlasmoWallet() {
             event.data.from === 'message-bridge' &&
             event.data.requestId === requestId
   }
-  // 保留原有的 plasmoWallet 接口（向后兼容）
   window.plasmoWallet = plasmoWallet
+  window.plasmoEthereum = plasmoWallet
+  window.myPlasmoWallet = plasmoWallet
   window.plasmoWalletInjected = true
-
-  console.log("✅ plasmoWallet 已经注入到页面");
-  console.log("🎯 钱包提供者注入完成:");
-  console.log("  - window.ethereum:", !!window.ethereum);
-  console.log("  - window.plasmoWallet:", !!window.plasmoWallet);
-
-  // 触发自定义事件，通知页面钱包已注入
-  window.dispatchEvent(new CustomEvent('ethereumProvider#initialized', {
-    detail: { provider: window.ethereum }
-  }));
-}
-
-// 扩展Window接口以支持我们的提供者
-declare global {
-  interface Window {
-    ethereum?: import('../services/ethereum-provider').EthereumProvider
-    plasmoWallet?: any
-    plasmoWalletInjected?: boolean
-    PlasmoEthereumProvider?: any
-  }
+  console.log("plasmoWallet 已经注入到页面");
 }

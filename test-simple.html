@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlasmoWallet 注入测试</title>
+</head>
+<body>
+    <h1>🔗 PlasmoWallet 注入测试</h1>
+    <div id="status">检查中...</div>
+
+    <script src="test-injection.js"></script>
+
+    <script>
+        // 监听来自扩展的事件
+        window.addEventListener('ethereum#initialized', (event) => {
+            console.log('🎯 接收到 ethereum#initialized 事件', event);
+            updateStatus();
+        });
+
+        window.addEventListener('plasmoWallet#initialized', (event) => {
+            console.log('🎯 接收到 plasmoWallet#initialized 事件', event);
+            updateStatus();
+        });
+
+        function updateStatus() {
+            const status = document.getElementById('status');
+            const interfaces = [
+                { name: 'window.plasmoEthereum', exists: !!window.plasmoEthereum },
+                { name: 'window.myPlasmoWallet', exists: !!window.myPlasmoWallet },
+                { name: 'window.plasmoWallet', exists: !!window.plasmoWallet },
+                { name: 'window.ethereum', exists: !!window.ethereum }
+            ];
+
+            status.innerHTML = interfaces.map(iface =>
+                `<div>${iface.name}: ${iface.exists ? '✅ 存在' : '❌ 不存在'}</div>`
+            ).join('');
+        }
+
+        // 立即更新状态
+        updateStatus();
+
+        // 1秒后再检查
+        setTimeout(updateStatus, 1000);
+
+        // 3秒后再检查
+        setTimeout(updateStatus, 3000);
+    </script>
+</body>
+</html>

@@ -131,21 +131,41 @@
 </head>
 <body>
     <div class="container">
-        <h1>🔗 Ethereum Provider (EIP-1193) 测试</h1>
+        <h1>🔗 PlasmoWallet 专用接口测试</h1>
+
+        <div class="info" style="background-color: #fff3cd; border-color: #ffeaa7; color: #856404;">
+            <strong>🚨 重要提示:</strong> 本页面专门测试 PlasmoWallet 接口，不使用标准的 window.ethereum 接口
+            <br><br>
+            <strong>🎯 推荐使用接口:</strong>
+            <code>window.plasmoEthereum</code> 或 <code>window.myPlasmoWallet</code>
+            <br><br>
+            <strong>📝 为何不使用 window.ethereum?</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>避免与其他钱包插件（MetaMask、Phantom等）的冲突</li>
+                <li>确保调用 PlasmoWallet 的功能而非其他钱包</li>
+                <li>提供明确的钱包识别和调试信息</li>
+            </ul>
+        </div>
 
         <div id="status" class="status">
-            检查钱包提供者状态...
+            检查 PlasmoWallet 接口状态...
         </div>
 
         <div class="grid">
             <div class="card">
-                <h3>提供者信息</h3>
+                <h3>🎯 PlasmoWallet 专用接口</h3>
                 <div class="provider-info">
-                    <dt>window.ethereum:</dt>
-                    <dd id="ethereum-exists">检查中...</dd>
+                    <dt>window.plasmoEthereum:</dt>
+                    <dd id="plasmo-ethereum-exists">检查中...</dd>
 
-                    <dt>isMetaMask:</dt>
-                    <dd id="is-metamask">检查中...</dd>
+                    <dt>window.myPlasmoWallet:</dt>
+                    <dd id="my-plasmo-wallet-exists">检查中...</dd>
+
+                    <dt>window.plasmoWallet:</dt>
+                    <dd id="plasmo-wallet-exists">检查中...</dd>
+
+                    <dt>isPlasmoWallet:</dt>
+                    <dd id="is-plasmo-wallet">检查中...</dd>
 
                     <dt>连接状态:</dt>
                     <dd id="connection-status">检查中...</dd>
@@ -155,6 +175,26 @@
 
                     <dt>当前链ID:</dt>
                     <dd id="current-chain">检查中...</dd>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>⚠️ window.ethereum (冲突接口)</h3>
+                <div class="provider-info">
+                    <dt>window.ethereum:</dt>
+                    <dd id="ethereum-exists">检查中...</dd>
+
+                    <dt>isMetaMask:</dt>
+                    <dd id="is-metamask">检查中...</dd>
+
+                    <dt>冲突检测:</dt>
+                    <dd id="conflict-detected">检查中...</dd>
+
+                    <div style="grid-column: 1 / -1; margin-top: 10px;">
+                        <div class="info" style="font-size: 12px;">
+                            💡 如果存在其他钱包，PlasmoWallet会自动覆盖此接口
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -262,25 +302,61 @@
         }
 
         function checkProvider() {
+            // 🔍 检查 PlasmoWallet 专用接口
+            const hasPlasmoEthereum = typeof window.plasmoEthereum !== 'undefined';
+            const hasMyPlasmoWallet = typeof window.myPlasmoWallet !== 'undefined';
+            const hasPlasmoWallet = typeof window.plasmoWallet !== 'undefined';
+            const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+            // 🔍 检查 window.ethereum（冲突接口）
             const hasEthereum = typeof window.ethereum !== 'undefined';
-            const provider = window.ethereum;
+            const ethereumProvider = window.ethereum;
 
-            // 更新基本信息
+            console.log('🔍 钱包检测结果:', {
+                plasmoEthereum: hasPlasmoEthereum,
+                myPlasmoWallet: hasMyPlasmoWallet,
+                plasmoWallet: hasPlasmoWallet,
+                ethereum: hasEthereum,
+                plasmoProvider: !!plasmoProvider
+            });
+
+            // 更新 PlasmoWallet 专用接口信息
+            document.getElementById('plasmo-ethereum-exists').textContent = hasPlasmoEthereum ? '✅ 存在' : '❌ 不存在';
+            document.getElementById('my-plasmo-wallet-exists').textContent = hasMyPlasmoWallet ? '✅ 存在' : '❌ 不存在';
+            document.getElementById('plasmo-wallet-exists').textContent = hasPlasmoWallet ? '✅ 存在' : '❌ 不存在';
+            document.getElementById('is-plasmo-wallet').textContent = plasmoProvider?.isPlasmoWallet ? '✅ 是' : '❌ 否';
+            document.getElementById('has-request').textContent = typeof plasmoProvider?.request === 'function' ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('has-enable').textContent = typeof plasmoProvider?.enable === 'function' ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('has-send').textContent = typeof plasmoProvider?.send === 'function' ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('has-events').textContent = plasmoProvider?.on && plasmoProvider?.removeListener ? '✅ 支持' : '❌ 不支持';
+
+            // 更新冲突接口信息
             document.getElementById('ethereum-exists').textContent = hasEthereum ? '✅ 存在' : '❌ 不存在';
-            document.getElementById('is-metamask').textContent = provider?.isMetaMask ? '✅ 是' : '❌ 否';
-            document.getElementById('has-request').textContent = typeof provider?.request === 'function' ? '✅ 支持' : '❌ 不支持';
-            document.getElementById('has-enable').textContent = typeof provider?.enable === 'function' ? '✅ 支持' : '❌ 不支持';
-            document.getElementById('has-send').textContent = typeof provider?.send === 'function' ? '✅ 支持' : '❌ 不支持';
-            document.getElementById('has-events').textContent = provider?.on && provider?.removeListener ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('is-metamask').textContent = ethereumProvider?.isMetaMask ? '✅ 是' : '❌ 否';
 
-            if (!hasEthereum) {
-                updateStatus('❌ 未检测到以太坊提供者，请确保钱包插件已安装并启用', 'error');
+            // 检测冲突
+            let conflictDetected = false;
+            if (hasEthereum && ethereumProvider && !ethereumProvider.isPlasmoWallet) {
+                conflictDetected = true;
+                document.getElementById('conflict-detected').textContent = '🚨 检测到其他钱包，已被PlasmoWallet覆盖';
+                document.getElementById('conflict-detected').style.color = '#856404';
+            } else if (hasEthereum && ethereumProvider?.isPlasmoWallet) {
+                conflictDetected = true;
+                document.getElementById('conflict-detected').textContent = '✅ PlasmoWallet成功覆盖接口';
+                document.getElementById('conflict-detected').style.color = '#155724';
+            } else {
+                document.getElementById('conflict-detected').textContent = '❌ 无其他钱包';
+                document.getElementById('conflict-detected').style.color = '#721c24';
+            }
+
+            if (!hasPlasmoEthereum && !hasMyPlasmoWallet && !hasPlasmoWallet) {
+                updateStatus('❌ 未检测到PlasmoWallet接口，请确保扩展已安装并启用', 'error');
                 return false;
             }
 
-            updateStatus('✅ 以太坊提供者检测成功', 'success');
+            updateStatus('✅ PlasmoWallet 接口检测成功', 'success');
 
-            // 更新连接状态
+            // 使用 PlasmoProvider 更新连接状态
             updateConnectionInfo();
 
             // 设置事件监听
@@ -290,41 +366,46 @@
         }
 
         function updateConnectionInfo() {
-            const provider = window.ethereum;
-            const connected = provider?.isConnected();
+            const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+            const connected = plasmoProvider?.isConnected();
 
             document.getElementById('connection-status').textContent = connected ? '✅ 已连接' : '❌ 未连接';
-            document.getElementById('current-account').textContent = provider?.selectedAddress || '未连接';
-            document.getElementById('current-chain').textContent = provider?.chainId || '未知';
+            document.getElementById('current-account').textContent = plasmoProvider?.selectedAddress || '未连接';
+            document.getElementById('current-chain').textContent = plasmoProvider?.chainId || '未知';
         }
 
         function setupEventListeners() {
-            const provider = window.ethereum;
-            if (!provider) return;
+            const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+            if (!plasmoProvider) return;
 
             log('📡 设置事件监听器...');
 
-            provider.on('accountsChanged', (accounts) => {
-                log(`🔄 accountsChanged: ${JSON.stringify(accounts)}`, 'event');
-                updateConnectionInfo();
-            });
+            // 检查是否支持事件系统（window.plasmoWallet可能不支持标准事件）
+            if (plasmoProvider.on && plasmoProvider.removeListener) {
+                plasmoProvider.on('accountsChanged', (accounts) => {
+                    log(`🔄 accountsChanged: ${JSON.stringify(accounts)}`, 'event');
+                    updateConnectionInfo();
+                });
 
-            provider.on('chainChanged', (chainId) => {
-                log(`🔄 chainChanged: ${chainId}`, 'event');
-                updateConnectionInfo();
-            });
+                plasmoProvider.on('chainChanged', (chainId) => {
+                    log(`🔄 chainChanged: ${chainId}`, 'event');
+                    updateConnectionInfo();
+                });
 
-            provider.on('connect', (connectInfo) => {
-                log(`🔄 connect: ${JSON.stringify(connectInfo)}`, 'event');
-                updateConnectionInfo();
-            });
+                plasmoProvider.on('connect', (connectInfo) => {
+                    log(`🔄 connect: ${JSON.stringify(connectInfo)}`, 'event');
+                    updateConnectionInfo();
+                });
 
-            provider.on('disconnect', (error) => {
-                log(`🔄 disconnect: ${JSON.stringify(error)}`, 'event');
-                updateConnectionInfo();
-            });
+                plasmoProvider.on('disconnect', (error) => {
+                    log(`🔄 disconnect: ${JSON.stringify(error)}`, 'event');
+                    updateConnectionInfo();
+                });
 
-            log('✅ 事件监听器设置完成');
+                log('✅ 事件监听器设置完成');
+            } else {
+                log('⚠️ 当前提供者不支持标准事件系统');
+            }
         }
 
         async function testRequestAccounts() {
@@ -333,10 +414,29 @@
             btn.innerHTML = '<span class="loading"></span> 连接中...';
 
             try {
-                log('🔑 开始测试 eth_requestAccounts...');
-                const accounts = await window.ethereum.request({
-                    method: 'eth_requestAccounts'
-                });
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
+                log('🔑 开始测试账户连接...');
+
+                let accounts;
+
+                // 优先使用标准EIP-1193方法
+                if (plasmoProvider.request) {
+                    accounts = await plasmoProvider.request({
+                        method: 'eth_requestAccounts'
+                    });
+                } else if (plasmoProvider.connect) {
+                    // 使用自定义connect方法
+                    const account = await plasmoProvider.connect();
+                    accounts = [account];
+                } else {
+                    throw new Error('当前提供者不支持账户连接方法');
+                }
+
                 log(`✅ 成功获取账户: ${JSON.stringify(accounts)}`);
                 updateConnectionInfo();
             } catch (error) {
@@ -349,10 +449,29 @@
 
         async function testGetAccounts() {
             try {
-                log('👥 开始测试 eth_accounts...');
-                const accounts = await window.ethereum.request({
-                    method: 'eth_accounts'
-                });
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
+                log('👥 开始测试获取当前账户...');
+
+                let accounts;
+
+                // 优先使用标准EIP-1193方法
+                if (plasmoProvider.request) {
+                    accounts = await plasmoProvider.request({
+                        method: 'eth_accounts'
+                    });
+                } else if (plasmoProvider.getAccount) {
+                    // 使用自定义getAccount方法
+                    const account = await plasmoProvider.getAccount();
+                    accounts = account ? [account] : [];
+                } else {
+                    throw new Error('当前提供者不支持获取账户方法');
+                }
+
                 log(`✅ 当前账户: ${JSON.stringify(accounts)}`);
             } catch (error) {
                 log(`❌ 获取账户失败: ${error.message}`);
@@ -361,10 +480,28 @@
 
         async function testGetChainId() {
             try {
-                log('🔗 开始测试 eth_chainId...');
-                const chainId = await window.ethereum.request({
-                    method: 'eth_chainId'
-                });
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
+                log('🔗 开始测试获取链ID...');
+
+                let chainId;
+
+                // 优先使用标准EIP-1193方法
+                if (plasmoProvider.request) {
+                    chainId = await plasmoProvider.request({
+                        method: 'eth_chainId'
+                    });
+                } else if (plasmoProvider.chainId) {
+                    // 直接从提供者获取链ID
+                    chainId = plasmoProvider.chainId;
+                } else {
+                    throw new Error('当前提供者不支持获取链ID方法');
+                }
+
                 log(`✅ 当前链ID: ${chainId}`);
                 updateConnectionInfo();
             } catch (error) {
@@ -374,20 +511,43 @@
 
         async function testGetBalance() {
             try {
-                log('💰 开始测试 eth_getBalance...');
-                const accounts = await window.ethereum.request({
-                    method: 'eth_accounts'
-                });
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
+                log('💰 开始测试获取余额...');
+
+                let accounts;
+
+                // 先获取账户
+                if (plasmoProvider.request) {
+                    accounts = await plasmoProvider.request({
+                        method: 'eth_accounts'
+                    });
+                } else if (plasmoProvider.getAccount) {
+                    const account = await plasmoProvider.getAccount();
+                    accounts = account ? [account] : [];
+                }
 
                 if (!accounts || accounts.length === 0) {
                     log('❌ 需要先连接账户');
                     return;
                 }
 
-                const balance = await window.ethereum.request({
-                    method: 'eth_getBalance',
-                    params: [accounts[0], 'latest']
-                });
+                let balance;
+
+                // 使用标准EIP-1193方法获取余额
+                if (plasmoProvider.request) {
+                    balance = await plasmoProvider.request({
+                        method: 'eth_getBalance',
+                        params: [accounts[0], 'latest']
+                    });
+                } else {
+                    throw new Error('当前提供者不支持获取余额方法');
+                }
+
                 log(`✅ 账户余额: ${balance} wei`);
             } catch (error) {
                 log(`❌ 获取余额失败: ${error.message}`);
@@ -396,10 +556,25 @@
 
         async function testPersonalSign() {
             try {
-                log('✍️ 开始测试 personal_sign...');
-                const accounts = await window.ethereum.request({
-                    method: 'eth_accounts'
-                });
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
+                log('✍️ 开始测试个人签名...');
+
+                let accounts;
+
+                // 先获取账户
+                if (plasmoProvider.request) {
+                    accounts = await plasmoProvider.request({
+                        method: 'eth_accounts'
+                    });
+                } else if (plasmoProvider.getAccount) {
+                    const account = await plasmoProvider.getAccount();
+                    accounts = account ? [account] : [];
+                }
 
                 if (!accounts || accounts.length === 0) {
                     log('❌ 需要先连接账户');
@@ -407,10 +582,21 @@
                 }
 
                 const message = 'Hello from Plasmo Wallet!';
-                const signature = await window.ethereum.request({
-                    method: 'personal_sign',
-                    params: [message, accounts[0]]
-                });
+                let signature;
+
+                // 使用标准EIP-1193方法签名
+                if (plasmoProvider.request) {
+                    signature = await plasmoProvider.request({
+                        method: 'personal_sign',
+                        params: [message, accounts[0]]
+                    });
+                } else if (plasmoProvider.signMessage) {
+                    // 使用自定义签名方法
+                    signature = await plasmoProvider.signMessage(message);
+                } else {
+                    throw new Error('当前提供者不支持签名方法');
+                }
+
                 log(`✅ 签名成功: ${signature}`);
             } catch (error) {
                 log(`❌ 个人签名失败: ${error.message}`);
@@ -419,10 +605,25 @@
 
         async function testSendTransaction() {
             try {
-                log('📤 开始测试 eth_sendTransaction...');
-                const accounts = await window.ethereum.request({
-                    method: 'eth_accounts'
-                });
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
+                log('📤 开始测试发送交易...');
+
+                let accounts;
+
+                // 先获取账户
+                if (plasmoProvider.request) {
+                    accounts = await plasmoProvider.request({
+                        method: 'eth_accounts'
+                    });
+                } else if (plasmoProvider.getAccount) {
+                    const account = await plasmoProvider.getAccount();
+                    accounts = account ? [account] : [];
+                }
 
                 if (!accounts || accounts.length === 0) {
                     log('❌ 需要先连接账户');
@@ -435,10 +636,18 @@
                     value: '0x0' // 0 ETH
                 };
 
-                const txHash = await window.ethereum.request({
-                    method: 'eth_sendTransaction',
-                    params: [tx]
-                });
+                let txHash;
+
+                // 使用标准EIP-1193方法发送交易
+                if (plasmoProvider.request) {
+                    txHash = await plasmoProvider.request({
+                        method: 'eth_sendTransaction',
+                        params: [tx]
+                    });
+                } else {
+                    throw new Error('当前提供者不支持发送交易方法');
+                }
+
                 log(`✅ 交易发送成功: ${txHash}`);
             } catch (error) {
                 log(`❌ 发送交易失败: ${error.message}`);
@@ -447,18 +656,30 @@
 
         async function testEvents() {
             try {
+                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+
+                if (!plasmoProvider) {
+                    throw new Error('未检测到PlasmoWallet接口');
+                }
+
                 log('📡 开始测试事件系统...');
+
+                // 检查是否支持事件系统
+                if (!plasmoProvider.on || !plasmoProvider.removeListener) {
+                    log('⚠️ 当前提供者不支持事件系统');
+                    return;
+                }
 
                 // 测试自定义事件
                 const testListener = (data) => {
                     log('✅ 自定义事件触发成功', 'event');
                 };
 
-                window.ethereum.on('test-event', testListener);
+                plasmoProvider.on('test-event', testListener);
 
                 // 触发自定义事件（这不会在实际环境中触发，只是测试监听器设置）
                 setTimeout(() => {
-                    window.ethereum.removeListener('test-event', testListener);
+                    plasmoProvider.removeListener('test-event', testListener);
                     log('✅ 事件监听器测试完成');
                 }, 1000);
 

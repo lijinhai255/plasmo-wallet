@@ -2,116 +2,9 @@ import { useWalletStore } from '../../store/WalletStore';
 import { useChainStore } from '../../store/ChainStore';
 import injectPlasmoWallet from './injected-helper';
 import * as constant from './type_constant';
-import { getWalletService } from '../services/wallet-only-service';
-import type { WalletRequest, WalletResponse } from '../services/wallet-only-service';
 
 console.log('background 脚本启动了');
 
-// 处理EIP-1193标准请求
-const handleEthereumRequest = async (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
-  console.log('🔄 处理EIP-1193请求:', message.method, message.params);
-
-  const walletStore = useWalletStore.getState();
-  const chainStore = useChainStore.getState();
-  const walletService = getWalletService();
-
-  try {
-    // 确保钱包已初始化
-    if (!walletStore.isInitialized) {
-      walletStore.initializeWallet();
-    }
-
-    const { method, params = [], requestId } = message;
-
-    // 构建钱包请求
-    const walletRequest: WalletRequest = {
-      method,
-      params,
-      id: requestId
-    };
-
-    // 处理需要用户确认的操作
-    if (requiresUserConfirmation(method)) {
-      // 显示确认UI（这里简化处理，实际应该弹出确认页面）
-      const confirmed = await showConfirmationDialog(method, params, sender.tab?.id);
-
-      if (!confirmed) {
-        throw new Error('用户取消了操作');
-      }
-    }
-
-    // 使用钱包服务处理请求
-    const walletResponse: WalletResponse = await walletService.handleWalletRequest(walletRequest);
-
-    if (walletResponse.error) {
-      throw new Error(walletResponse.error.message);
-    }
-
-    const result = walletResponse.result;
-
-    // 发送成功响应
-    sendResponse({
-      success: true,
-      data: result,
-      requestId,
-      from: 'background'
-    });
-
-    console.log('✅ EIP-1193请求处理成功:', method, result);
-
-  } catch (error) {
-    console.error('❌ EIP-1193请求处理失败:', method, error);
-
-    // 发送错误响应
-    sendResponse({
-      success: false,
-      error: error instanceof Error ? error.message : '未知错误',
-      requestId,
-      from: 'background'
-    });
-  }
-
-  return true; // 表示异步响应
-};
-
-/**
- * 检查是否需要用户确认
- */
-function requiresUserConfirmation(method: string): boolean {
-  const confirmationRequiredMethods = [
-    'eth_sendTransaction',
-    'personal_sign',
-    'eth_signTypedData_v4',
-    'wallet_switchEthereumChain',
-    'wallet_addEthereumChain'
-  ];
-
-  return confirmationRequiredMethods.includes(method);
-}
-
-/**
- * 显示确认对话框（简化版本，实际应该创建确认页面）
- */
-async function showConfirmationDialog(method: string, params: any[], tabId?: number): Promise<boolean> {
-  console.log(`🔄 需要用户确认: ${method}`, params);
-
-  // 这里应该创建一个确认页面或弹窗
-  // 目前简化处理，直接返回true
-  // 在实际应用中，你应该：
-  // 1. 创建一个确认页面
-  // 2. 显示交易/签名详情
-  // 3. 等待用户确认或取消
-  // 4. 返回用户的决定
-
-  return new Promise((resolve) => {
-    // 模拟用户确认（实际应该显示UI）
-    setTimeout(() => {
-      // 暂时自动确认，用于测试
-      console.log('✅ 用户确认操作');
-      resolve(true);
-    }, 100);
-  });
-}
 
 // 初始化钱包状态
 const initWallet = () => {
@@ -122,34 +15,60 @@ const initWallet = () => {
 
 // 注册消息监听器
 const setupMessageListener = () => {
-  console.log('🔄 监听来自 message-bridge 和 ethereum-provider 的消息');
+  console.log('🔄 监听来自 message-bridge 的消息');
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("background 收到消息:", message.type, "来自标签页：", sender.tab?.id);
 
     const walletStore = useWalletStore.getState()
 
-    // 处理EIP-1193标准请求
-    if (message.type === 'ETHEREUM_REQUEST') {
-      return handleEthereumRequest(message, sender, sendResponse)
-    }
-
-    // 处理连接请求 (向后兼容)
+    // 处理连接请求
     if (message.type === constant.WALLET_CONNECT) {
-      try {
-        // 确保钱包已初始化
-        if (!walletStore.isInitialized) {
-          walletStore.initializeWallet()
-        }
+      console.log('🔄 处理 DApp 连接请求');
 
-        const currentWallet = walletStore.currentWallet
+      // 检查钱包是否已经连接
+      if (walletStore.currentWallet?.address) {
+        console.log('✅ 钱包已连接，直接返回地址');
         sendResponse({
-          data: { account: currentWallet?.address || null }
+          data: { account: walletStore.currentWallet.address }
         })
-      } catch (error) {
-        sendResponse({
-          data: { error: error instanceof Error ? error.message : '连接失败' },
-        })
+        return true
       }
+
+      // 确保钱包已初始化
+      if (!walletStore.isInitialized) {
+        walletStore.initializeWallet()
+      }
+
+      // 弹出钱包界面让用户连接
+      chrome.action.openPopup().then(() => {
+        console.log('🎯 已打开钱包弹窗');
+
+        // 监听连接结果
+        const checkConnection = setInterval(() => {
+          const currentWallet = walletStore.currentWallet
+          if (currentWallet?.address) {
+            clearInterval(checkConnection)
+            console.log('✅ 用户已连接钱包');
+            sendResponse({
+              data: { account: currentWallet.address }
+            })
+          }
+        }, 500)
+
+        // 10秒超时
+        setTimeout(() => {
+          clearInterval(checkConnection)
+          sendResponse({
+            data: { error: '连接超时，请用户手动连接钱包' }
+          })
+        }, 10000)
+      }).catch((error) => {
+        console.error('❌ 打开钱包弹窗失败:', error)
+        sendResponse({
+          data: { error: '无法打开钱包界面' }
+        })
+      })
+
       return true
     }
 
@@ -170,19 +89,18 @@ const setupMessageListener = () => {
         })
         return true
       }
-
+      const walletStore = useWalletStore.getState()
       try {
-        // TODO: 实现签名功能
-        const privateKey = walletStore.currentWallet?.privateKey
-        if (!privateKey) {
-          throw new Error('钱包未解锁')
-        }
-
-        // 这里应该实现真实的签名逻辑
-        const signedMessage = `signed_${message.data.message}`
-
-        sendResponse({
-          data: { signedMessage }
+        walletStore.signMessage(message.data.message)
+        .then((signedMessage) => {
+          sendResponse({
+            data: { signedMessage }
+          })
+        })
+        .catch((error) => {
+          sendResponse({
+            data: { error: error.message },
+          })
         })
       } catch (error) {
         sendResponse({
@@ -194,7 +112,7 @@ const setupMessageListener = () => {
 
     // 处理断开连接
     if (message.type === constant.WALLET_DISCONNECT) {
-      // 锁定钱包
+      const walletStore = useWalletStore.getState()
       walletStore.lockWallet()
       sendResponse({
         data: { success: true }
