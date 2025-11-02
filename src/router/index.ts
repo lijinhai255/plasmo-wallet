@@ -7,6 +7,7 @@ import { ErrorTestPage } from "../pages/ErrorTestPage"
 import { TokenManager } from "../components/TokenManager"
 import { WalletStatus } from "../components/WalletStatus"
 import { TransactionConfirmPage } from "../pages/dapp/TransactionConfirmPage"
+import { SignatureConfirmPage } from "../pages/dapp/SignatureConfirmPage"
 import { ConnectionRequestsPage } from "../pages/dapp/ConnectionRequestsPage"
 import { PermissionsPage } from "../pages/dapp/PermissionsPage"
 import { NetworkManagerPage } from "../pages/network/NetworkManagerPage"
@@ -63,6 +64,25 @@ const WalletStatusPage = () => {
   }
 
   return React.createElement(WalletStatusComponent)
+}
+
+// 创建签名确认页面组件
+const SignatureConfirmPageWrapper = (props: any) => {
+  // 动态导入避免循环依赖
+  const [SignatureConfirmComponent, setSignatureConfirmComponent] = React.useState<React.ComponentType | null>(null)
+
+  React.useEffect(() => {
+    import("../pages/dapp/SignatureConfirmPage").then(m => {
+      setSignatureConfirmComponent(() => m.SignatureConfirmPage)
+    })
+  }, [])
+
+  if (!SignatureConfirmComponent) {
+    return React.createElement('div', {style: {padding: '16px', textAlign: 'center'}}, '加载中...')
+  }
+
+  // 传递所有props给SignatureConfirmPage
+  return React.createElement(SignatureConfirmComponent, props)
 }
 
 export interface RouteConfig {
@@ -147,7 +167,14 @@ export const routes: RouteConfig[] = [
   //   label: "交易确认",
   //   icon: "✅",
   //   developmentOnly: true // 通常这个页面通过模态框调用，不在导航中显示
-  // }
+  // },
+  {
+    path: "/signature-confirm",
+    component: SignatureConfirmPageWrapper,
+    label: "签名确认",
+    icon: "🔐",
+    developmentOnly: true // 通常这个页面通过模态框调用，不在导航中显示
+  }
 ]
 
 export const getVisibleRoutes = () => {

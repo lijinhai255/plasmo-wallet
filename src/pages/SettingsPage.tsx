@@ -1,11 +1,9 @@
 import React, { useState } from 'react'
-import { useSimpleToastContext } from '../contexts/SimpleToastContext'
 
 export const SettingsPage = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [darkMode, setDarkMode] = useState(false)
   const [autoConnect, setAutoConnect] = useState(false)
-  const { showInfo } = useSimpleToastContext()
 
   const handleToggleNotifications = () => {
     setNotificationsEnabled(!notificationsEnabled)
@@ -22,13 +20,13 @@ export const SettingsPage = () => {
   const handleExportWallet = () => {
     // 实现导出钱包功能
     console.log('导出钱包')
-    showInfo('导出功能开发中...', 0)
+    alert('导出功能开发中...')
   }
 
   const handleImportWallet = () => {
     // 实现导入钱包功能
     console.log('导入钱包')
-    showInfo('导入功能开发中...', 0)
+    alert('导入功能开发中...')
   }
 
   const handleResetSettings = () => {

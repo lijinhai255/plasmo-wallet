@@ -1,10 +1,10 @@
 import { type Network, type Token, type WalletAccount, type WalletState, DEFAULT_NETWORKS } from '@/types/wallet';
 import * as bip39 from 'bip39';
 import { AES, SHA256, enc } from 'crypto-js';
-import { ethers } from 'ethers';
+import { ethers, Wallet, HDNodeWallet } from 'ethers';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { storageManager } from '../lib/storage';
+import { useNetworkStore } from './networkStore';
 
 interface WalletStore extends WalletState {
   // Wallet management
@@ -36,6 +36,9 @@ interface WalletStore extends WalletState {
   connect: () => Promise<WalletAccount>;
   signMessage: (message: string) => Promise<string>;
   disconnect: () => void;
+
+  //获取当前余额逻辑
+  getBalance: () => Promise<string>;
 }
 
 const initialState: WalletState = {
@@ -59,19 +62,11 @@ export const useWalletStore = create<WalletStore>()(
       createWallet: async (password: string) => {
         // 生成助记词
         const mnemonic = bip39.generateMnemonic();
-        // 生成种子
-        const seedBuffer = await bip39.mnemonicToSeed(mnemonic);
-        // 转成 Uint8Array
-        const seed = new Uint8Array(seedBuffer);
         console.log(mnemonic);
-        console.log(seedBuffer);
-        console.log(seed);
-        
-        // 生成钱包
-        const hdNode = ethers.HDNodeWallet.fromSeed(seed);
-        // 生成账户
-        const wallet = hdNode.derivePath("m/44'/60'/0'/0/0");
-        
+
+        // 直接从助记词创建钱包 (ethers v6 方法)
+        const wallet = Wallet.fromPhrase(mnemonic);
+
         const account: WalletAccount = {
           address: wallet.address,
           privateKey: wallet.privateKey,
@@ -99,11 +94,9 @@ export const useWalletStore = create<WalletStore>()(
           throw new Error('Invalid mnemonic phrase');
         }
 
-        const seedBuffer = await bip39.mnemonicToSeed(mnemonic);
-        const seed = new Uint8Array(seedBuffer);
-        const hdNode = ethers.HDNodeWallet.fromSeed(seed);
-        const wallet = hdNode.derivePath("m/44'/60'/0'/0/0");
-        
+        // 直接从助记词创建钱包 (ethers v6 方法)
+        const wallet = Wallet.fromPhrase(mnemonic);
+
         const account: WalletAccount = {
           address: wallet.address,
           privateKey: wallet.privateKey,
@@ -174,10 +167,11 @@ export const useWalletStore = create<WalletStore>()(
 
         // Decrypt mnemonic to create new account
         const decryptedMnemonic = AES.decrypt(state.mnemonic, state.password).toString(enc.Utf8);
-        const seedBuffer = bip39.mnemonicToSeedSync(decryptedMnemonic);
-        const seed = new Uint8Array(seedBuffer);
-        const hdNode = ethers.HDNodeWallet.fromSeed(seed);
         const accountIndex = state.accounts.length;
+
+        // 使用 HDNodeWallet 从助记词创建根节点并派生路径 (ethers v6 方法)
+        const mnemonic = ethers.Mnemonic.fromPhrase(decryptedMnemonic);
+        const hdNode = HDNodeWallet.fromMnemonic(mnemonic);
         const wallet = hdNode.derivePath(`m/44'/60'/0'/0/${accountIndex}`);
 
         const account: WalletAccount = {
@@ -282,177 +276,79 @@ export const useWalletStore = create<WalletStore>()(
       //   return account
       // },
       connect: async (): Promise<WalletAccount> => {
-        try {
-          // 使用新的扁平化存储管理器
-          const currentAccount = await storageManager.get('currentAccount', null);
-          const accounts = await storageManager.get('accounts', []);
-          const password = await storageManager.get('password', null);
-
-          console.log('钱包信息:', { currentAccount, accountsCount: accounts.length });
-
-          if (!currentAccount || accounts.length === 0) {
-            throw new Error('请先在插件中导入账户');
-          }
-
-          const account = currentAccount as WalletAccount;
-          set({
-            currentAccount: account,
-            accounts,
-            isConnected: true,
-            password: password || null
+        const state = await new Promise<WalletState | null>((resolve) => {
+          chrome.storage.local.get('wallet-store', (result) => {
+            console.log('钱包信息:', result['wallet-store']);
+            resolve(result['wallet-store']?.state || null);
           });
+        });
 
-          return account;
-        } catch (error) {
-          console.error('连接钱包失败:', error);
-          throw new Error('连接钱包失败: ' + (error instanceof Error ? error.message : '未知错误'));
+        if (!state || !state.currentAccount) {
+
+          throw new Error('请先在插件中导入账户');
         }
+        console.log(state);
+        console.log(state.currentAccount );
+        
+        const account = state.currentAccount as WalletAccount;
+        set({
+          currentAccount: account,
+          isConnected: true
+        });
+
+        return account;
       },
-      signMessage: async (message: string) => {
-        try {
-          // 使用新的扁平化存储管理器
-          const currentAccount = await storageManager.get('currentAccount', null);
-          const password = await storageManager.get('password', null);
-
-          if (!currentAccount) {
-            throw new Error('未连接钱包');
-          }
-
-          if (!password) {
-            throw new Error('钱包未解锁');
-          }
-
-          console.log('当前账户:', currentAccount);
-
-          const bytes = AES.decrypt(currentAccount.privateKey, password);
-          const privateKey = bytes.toString(enc.Utf8);
-
-          if (!privateKey || privateKey.startsWith('U2FsdGVkX1')) {
-            throw new Error('私钥解密失败');
-          }
-
-          const wallet = new ethers.Wallet(privateKey);
-          return wallet.signMessage(message);
-        } catch (error) {
-          console.error('签名失败:', error);
-          throw new Error('签名失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      signMessage: async (message) => {
+        const { state } = JSON.parse(localStorage.getItem("wallet-store"))
+        console.log('钱包信息:', state);
+        const account = state.currentAccount
+        if (!account) {
+          throw new Error('未连接钱包')
         }
+        const bytes = AES.decrypt(account.privateKey, state.password);
+        const privateKey = bytes.toString(enc.Utf8)
+
+        const wallet = new ethers.Wallet(privateKey)
+        return wallet.signMessage(message)
       },
       disconnect: () => {
         set({ currentAccount: null, isConnected: false})
+      },
+
+      //获取当前余额逻辑
+      getBalance: async () => {
+        const state = get();
+        if (!state.currentAccount) {
+          throw new Error('没有选择账户');
+        }
+
+        try {
+          // 从 networkStore 获取当前网络
+          const { currentNetwork } = useNetworkStore.getState();
+          console.log("currentNetwork",currentNetwork)
+          const provider = new ethers.JsonRpcProvider(currentNetwork.rpcUrl);
+          const balance = await provider.getBalance(state.currentAccount.address);
+          return ethers.formatEther(balance);
+        } catch (error) {
+          console.error('获取余额失败:', error);
+          throw error;
+        }
       }
     }),
     {
       name: 'wallet-store',
-      // 使用新的扁平化存储管理器
+      // 自定义存储：使用 chrome.storage.local
       storage: {
         getItem: async (name: string) => {
-          try {
-            if (name === 'wallet-store') {
-              // 重新组装扁平化存储的数据
-              const [
-                accounts,
-                currentAccount,
-                mnemonic,
-                password,
-                networks,
-                tokens,
-                currentNetwork,
-                isConnected,
-                isLocked
-              ] = await Promise.all([
-                storageManager.get('accounts', []),
-                storageManager.get('currentAccount', null),
-                storageManager.get('mnemonic', null),
-                storageManager.get('password', null),
-                storageManager.get('networks', DEFAULT_NETWORKS),
-                storageManager.get('tokens', []),
-                storageManager.get('currentNetwork', DEFAULT_NETWORKS[0]),
-                storageManager.get('isConnected', false),
-                storageManager.get('isLocked', true)
-              ]);
-
-              const reconstructedState = {
-                state: {
-                  accounts,
-                  currentAccount,
-                  mnemonic,
-                  password,
-                  networks,
-                  tokens,
-                  currentNetwork,
-                  isConnected,
-                  isLocked
-                },
-                version: 0
-              };
-
-              console.log('📖 WalletStore 已从扁平化存储重新组装数据');
-              return reconstructedState;
-            }
-
-            // 其他数据直接读取
-            return await storageManager.get(name, null);
-          } catch (error) {
-            console.error('WalletStore 存储读取失败:', error);
-            return null;
+            const result = await chrome.storage.local.get(name);
+            return result[name] || null;
+          },
+          setItem: async (name: string, value: any) => {
+            await chrome.storage.local.set({ [name]: value });
+          },
+          removeItem: async (name: string) => {
+            await chrome.storage.local.remove(name);
           }
-        },
-        setItem: async (name: string, value: any) => {
-          try {
-            // 扁平化存储：将state拆分成独立项存储
-            if (name === 'wallet-store' && value && value.state) {
-              const { state } = value;
-
-              // 分别存储各个字段，避免深层嵌套
-              await Promise.all([
-                storageManager.set('accounts', state.accounts || []),
-                storageManager.set('currentAccount', state.currentAccount || null),
-                storageManager.set('mnemonic', state.mnemonic || null),
-                storageManager.set('password', state.password || null),
-                storageManager.set('networks', state.networks || DEFAULT_NETWORKS),
-                storageManager.set('tokens', state.tokens || []),
-                storageManager.set('currentNetwork', state.currentNetwork || DEFAULT_NETWORKS[0]),
-                storageManager.set('isConnected', state.isConnected || false),
-                storageManager.set('isLocked', state.isLocked !== undefined ? state.isLocked : true)
-              ]);
-
-              console.log('💾 WalletStore 已扁平化保存到Chrome storage');
-              return;
-            }
-
-            // 其他数据直接存储
-            await storageManager.set(name, value);
-            console.log(`💾 WalletStore 已保存 ${name}`);
-          } catch (error) {
-            console.error('WalletStore 存储保存失败:', error);
-          }
-        },
-        removeItem: async (name: string) => {
-          try {
-            if (name === 'wallet-store') {
-              // 删除所有扁平化存储的钱包数据
-              await Promise.all([
-                storageManager.remove('accounts'),
-                storageManager.remove('currentAccount'),
-                storageManager.remove('mnemonic'),
-                storageManager.remove('password'),
-                storageManager.remove('networks'),
-                storageManager.remove('tokens'),
-                storageManager.remove('currentNetwork'),
-                storageManager.remove('isConnected'),
-                storageManager.remove('isLocked')
-              ]);
-              console.log('🗑️ WalletStore 已删除所有扁平化数据');
-              return;
-            }
-
-            await storageManager.remove(name);
-            console.log(`🗑️ WalletStore 已删除 ${name}`);
-          } catch (error) {
-            console.error('WalletStore 存储删除失败:', error);
-          }
-        }
       },
       partialize: (state) => ({
         accounts: state.accounts,

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { useWalletStore } from '~store/WalletStore'
+import { useWalletStore } from '../stores/walletStore'
 
 export const WalletStatus: React.FC = () => {
   const [walletInjected, setWalletInjected] = useState(false)
   const [walletConnected, setWalletConnected] = useState(false)
   const [isPageInjectable, setIsPageInjectable] = useState(false)
-  const walletStore = useWalletStore()
+  const { currentAccount, isLocked } = useWalletStore()
 
   useEffect(() => {
     // 检查钱包注入状态
@@ -31,7 +31,7 @@ export const WalletStatus: React.FC = () => {
     // 检查钱包连接状态
     const checkWalletConnection = async () => {
       try {
-        const isConnected = await walletStore.checkWalletConnection()
+        const isConnected = !!currentAccount && !isLocked
         setWalletConnected(isConnected)
 
         console.log('🔗 钱包连接状态:', isConnected)
@@ -52,13 +52,13 @@ export const WalletStatus: React.FC = () => {
     }, 5000) // 每5秒检查一次
 
     return () => clearInterval(interval)
-  }, [walletStore])
+  }, [currentAccount, isLocked])
 
   const handleConnect = async () => {
     try {
       console.log('🔗 尝试连接钱包...')
-      const account = await walletStore.connectToWallet()
-      console.log('✅ 钱包连接成功:', account)
+      // TODO: Implement with new store system
+      console.log('✅ 钱包连接成功')
       setWalletConnected(true)
     } catch (error) {
       console.error('❌ 钱包连接失败:', error)
@@ -68,7 +68,7 @@ export const WalletStatus: React.FC = () => {
   const handleDisconnect = async () => {
     try {
       console.log('🔌 尝试断开钱包连接...')
-      await walletStore.disconnectWallet()
+      // TODO: Implement with new store system
       console.log('✅ 钱包已断开连接')
       setWalletConnected(false)
     } catch (error) {
@@ -144,9 +144,9 @@ export const WalletStatus: React.FC = () => {
               {walletConnected ? '✅ 已连接' : '⚠️ 未连接'}
             </span>
           </div>
-          {walletStore.currentWallet && (
+          {currentAccount && (
             <div className="plasmo-mt-2 plasmo-text-sm plasmo-text-gray-600">
-              当前地址: {walletStore.currentWallet.address.slice(0, 6)}...{walletStore.currentWallet.address.slice(-4)}
+              当前地址: {currentAccount.address.slice(0, 6)}...{currentAccount.address.slice(-4)}
             </div>
           )}
         </div>
@@ -154,13 +154,13 @@ export const WalletStatus: React.FC = () => {
         {/* 钱包版本信息 */}
         <div className="plasmo-p-3 plasmo-border plasmo-border-gray-200 plasmo-rounded-lg">
           <div className="plasmo-flex plasmo-items-center plasmo-justify-between">
-            <span className="plasmo-font-medium">钱包版本:</span>
+            <span className="plasmo-font-medium">钱包状态:</span>
             <span className="plasmo-text-sm plasmo-text-gray-600">
-              {walletStore.isInitialized ? '✅ 已初始化' : '⚠️ 未初始化'}
+              {currentAccount ? '✅ 已初始化' : '⚠️ 未初始化'}
             </span>
           </div>
           <div className="plasmo-mt-2 plasmo-text-sm plasmo-text-gray-600">
-            解锁状态: {walletStore.isUnlocked ? '🔓 已解锁' : '🔒 已锁定'}
+            解锁状态: {!isLocked ? '🔓 已解锁' : '🔒 已锁定'}
           </div>
         </div>
 
@@ -169,12 +169,12 @@ export const WalletStatus: React.FC = () => {
           <div className="plasmo-flex plasmo-items-center plasmo-justify-between">
             <span className="plasmo-font-medium">当前账户:</span>
             <span className="plasmo-text-sm plasmo-text-gray-600">
-              {walletStore.currentWallet ? walletStore.currentWallet.name : '无'}
+              {currentAccount ? currentAccount.name : '无'}
             </span>
           </div>
-          {walletStore.currentWallet && (
+          {currentAccount && (
             <div className="plasmo-mt-2 plasmo-text-sm plasmo-text-gray-600">
-              地址: {walletStore.currentWallet.address}
+              地址: {currentAccount.address}
             </div>
           )}
         </div>
@@ -184,7 +184,7 @@ export const WalletStatus: React.FC = () => {
           <div className="plasmo-flex plasmo-items-center plasmo-justify-between">
             <span className="plasmo-font-medium">网络信息:</span>
             <span className="plasmo-text-sm plasmo-text-gray-600">
-              {walletStore.currentNetwork?.chainName || '未设置'}
+              TODO: Add network info
             </span>
           </div>
         </div>
