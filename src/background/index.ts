@@ -2,8 +2,8 @@ import { useWalletStore } from '../../store/WalletStore';
 import { useChainStore } from '../../store/ChainStore';
 import injectPlasmoWallet from './injected-helper';
 import * as constant from './type_constant';
-import { getRPCService } from '../services/rpc-service';
-import type { RPCRequest, RPCResponse } from '../services/rpc-service';
+import { getWalletService } from '../services/wallet-only-service';
+import type { WalletRequest, WalletResponse } from '../services/wallet-only-service';
 
 console.log('background 脚本启动了');
 
@@ -13,7 +13,7 @@ const handleEthereumRequest = async (message: any, sender: chrome.runtime.Messag
 
   const walletStore = useWalletStore.getState();
   const chainStore = useChainStore.getState();
-  const rpcService = getRPCService();
+  const walletService = getWalletService();
 
   try {
     // 确保钱包已初始化
@@ -23,8 +23,8 @@ const handleEthereumRequest = async (message: any, sender: chrome.runtime.Messag
 
     const { method, params = [], requestId } = message;
 
-    // 构建RPC请求
-    const rpcRequest: RPCRequest = {
+    // 构建钱包请求
+    const walletRequest: WalletRequest = {
       method,
       params,
       id: requestId
@@ -40,14 +40,14 @@ const handleEthereumRequest = async (message: any, sender: chrome.runtime.Messag
       }
     }
 
-    // 使用RPC服务处理请求
-    const rpcResponse: RPCResponse = await rpcService.handleRequest(rpcRequest);
+    // 使用钱包服务处理请求
+    const walletResponse: WalletResponse = await walletService.handleWalletRequest(walletRequest);
 
-    if (rpcResponse.error) {
-      throw new Error(rpcResponse.error.message);
+    if (walletResponse.error) {
+      throw new Error(walletResponse.error.message);
     }
 
-    const result = rpcResponse.result;
+    const result = walletResponse.result;
 
     // 发送成功响应
     sendResponse({
