@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { useWalletStore } from '../../../store/WalletStore'
-import { useChainStore } from '../../../store/ChainStore'
+import { useWalletStore } from '../../stores/walletStore'
+import { useNetworkStore } from '../../stores/networkStore'
 
 interface TransactionRequest {
   id?: string
@@ -30,8 +30,8 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
   onConfirm,
   onCancel
 }) => {
-  const walletStore = useWalletStore()
-  const chainStore = useChainStore()
+  const { currentAccount } = useWalletStore()
+  const { currentNetwork } = useNetworkStore()
   const [isProcessing, setIsProcessing] = useState(false)
   const [gasEstimate, setGasEstimate] = useState<string>('0')
   const [totalCost, setTotalCost] = useState<string>('0')
@@ -67,11 +67,6 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
     return ether.toFixed(6)
   }
 
-  const getCurrentNetwork = () => {
-    const network = chainStore.getNetworkConfig(chainStore.currentChainId)
-    return network || { chainName: 'Unknown Network', icon: '🌐' }
-  }
-
   const handleConfirm = async () => {
     setIsProcessing(true)
     setError('')
@@ -96,39 +91,37 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
     onCancel()
   }
 
-  const network = getCurrentNetwork()
-
   return (
-    <div className="plasmo-p-4 plasmo-bg-white plasmo-min-h-screen">
+    <div className="w-full h-full bg-white p-4">
       {/* 交易确认标题 */}
-      <div className="plasmo-text-center plasmo-mb-6">
-        <div className="plasmo-w-12 plasmo-h-12 plasmo-bg-orange-100 plasmo-rounded-full plasmo-flex plasmo-items-center plasmo-justify-center plasmo-mx-auto plasmo-mb-3">
-          <span className="plasmo-text-2xl">🔄</span>
+      <div className="text-center mb-6">
+        <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <span className="text-2xl">🔄</span>
         </div>
-        <h1 className="plasmo-text-xl plasmo-font-bold plasmo-mb-2">
+        <h1 className="text-xl font-bold mb-2">
           确认交易
         </h1>
-        <p className="plasmo-text-gray-600 plasmo-text-sm">
+        <p className="text-gray-600 text-sm">
           请仔细检查交易详情
         </p>
       </div>
 
       {/* DApp信息 */}
       {transaction.origin && (
-        <div className="plasmo-bg-gray-50 plasmo-p-3 plasmo-rounded-lg plasmo-mb-4">
-          <div className="plasmo-flex plasmo-items-center plasmo-space-x-3">
+        <div className="bg-gray-50 p-3 rounded-lg mb-4">
+          <div className="flex items-center space-x-3">
             {transaction.favicon && (
               <img
                 src={transaction.favicon}
                 alt=""
-                className="plasmo-w-6 plasmo-h-6 plasmo-rounded"
+                className="w-6 h-6 rounded"
               />
             )}
-            <div className="plasmo-flex-1">
-              <p className="plasmo-text-sm plasmo-font-medium">
+            <div className="flex-1">
+              <p className="text-sm font-medium">
                 {transaction.title || transaction.origin}
               </p>
-              <p className="plasmo-text-xs plasmo-text-gray-500">
+              <p className="text-xs text-gray-500">
                 请求交易签名
               </p>
             </div>
@@ -137,40 +130,40 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
       )}
 
       {/* 网络信息 */}
-      <div className="plasmo-bg-blue-50 plasmo-p-3 plasmo-rounded-lg plasmo-mb-4">
-        <div className="plasmo-flex plasmo-items-center plasmo-space-x-2">
-          <span className="plasmo-text-sm plasmo-font-medium">网络:</span>
-          <span className="plasmo-text-sm">{network.icon} {network.chainName}</span>
+      <div className="bg-blue-50 p-3 rounded-lg mb-4">
+        <div className="flex items-center space-x-2">
+          <span className="text-sm font-medium">网络:</span>
+          <span className="text-sm">🌐 {currentNetwork.name}</span>
         </div>
       </div>
 
       {/* 交易详情 */}
-      <div className="plasmo-bg-white plasmo-border plasmo-border-gray-200 plasmo-rounded-lg plasmo-mb-4">
-        <div className="plasmo-p-4 plasmo-border-b plasmo-border-gray-200">
-          <h3 className="plasmo-font-medium plasmo-mb-3">交易详情</h3>
+      <div className="bg-white border border-gray-200 rounded-lg mb-4">
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="font-medium mb-3">交易详情</h3>
 
           {/* 发送地址 */}
-          <div className="plasmo-flex plasmo-justify-between plasmo-items-center plasmo-mb-3">
-            <span className="plasmo-text-sm plasmo-text-gray-600">从</span>
-            <div className="plasmo-text-right">
-              <p className="plasmo-text-sm plasmo-font-mono">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-sm text-gray-600">从</span>
+            <div className="text-right">
+              <p className="text-sm font-mono">
                 {formatAddress(transaction.from)}
               </p>
-              <p className="plasmo-text-xs plasmo-text-gray-500">
-                {walletStore.currentWallet?.name || '当前账户'}
+              <p className="text-xs text-gray-500">
+                {currentAccount?.name || '当前账户'}
               </p>
             </div>
           </div>
 
           {/* 接收地址 */}
-          <div className="plasmo-flex plasmo-justify-between plasmo-items-center plasmo-mb-3">
-            <span className="plasmo-text-sm plasmo-text-gray-600">到</span>
-            <div className="plasmo-text-right">
-              <p className="plasmo-text-sm plasmo-font-mono">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-sm text-gray-600">到</span>
+            <div className="text-right">
+              <p className="text-sm font-mono">
                 {formatAddress(transaction.to)}
               </p>
               <button
-                className="plasmo-text-xs plasmo-text-blue-600 hover:plasmo-text-blue-800"
+                className="text-xs text-blue-600 hover:text-blue-800"
                 onClick={() => navigator.clipboard.writeText(transaction.to)}
               >
                 复制地址
@@ -179,27 +172,27 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
           </div>
 
           {/* 转账金额 */}
-          <div className="plasmo-flex plasmo-justify-between plasmo-items-center">
-            <span className="plasmo-text-sm plasmo-text-gray-600">金额</span>
-            <span className="plasmo-text-sm plasmo-font-medium">
-              {formatEther(transaction.value)} ETH
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">金额</span>
+            <span className="text-sm font-medium">
+              {formatEther(transaction.value)} {currentNetwork.symbol}
             </span>
           </div>
         </div>
 
         {/* Gas费用 */}
-        <div className="plasmo-p-4">
-          <div className="plasmo-flex plasmo-justify-between plasmo-items-center plasmo-mb-2">
-            <span className="plasmo-text-sm plasmo-text-gray-600">预计Gas费用</span>
-            <span className="plasmo-text-sm">
-              {formatEther(gasEstimate)} ETH
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-gray-600">预计Gas费用</span>
+            <span className="text-sm">
+              {formatEther(gasEstimate)} {currentNetwork.symbol}
             </span>
           </div>
 
-          <div className="plasmo-flex plasmo-justify-between plasmo-items-center plasmo-pt-3 plasmo-border-t plasmo-border-gray-200">
-            <span className="plasmo-font-medium">总计</span>
-            <span className="plasmo-font-medium">
-              {formatEther(totalCost)} ETH
+          <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+            <span className="font-medium">总计</span>
+            <span className="font-medium">
+              {formatEther(totalCost)} {currentNetwork.symbol}
             </span>
           </div>
         </div>
@@ -207,17 +200,17 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
 
       {/* 交易数据 (如果有) */}
       {transaction.data && transaction.data !== '0x' && (
-        <div className="plasmo-bg-yellow-50 plasmo-p-3 plasmo-rounded-lg plasmo-mb-4">
-          <div className="plasmo-flex plasmo-items-center plasmo-justify-between plasmo-mb-2">
-            <span className="plasmo-text-sm plasmo-font-medium">交易数据</span>
+        <div className="bg-yellow-50 p-3 rounded-lg mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">交易数据</span>
             <button
-              className="plasmo-text-xs plasmo-text-blue-600 hover:plasmo-text-blue-800"
+              className="text-xs text-blue-600 hover:text-blue-800"
               onClick={() => navigator.clipboard.writeText(transaction.data || '')}
             >
               复制数据
             </button>
           </div>
-          <div className="plasmo-text-xs plasmo-font-mono plasmo-text-gray-600 plasmo-max-h-20 plasmo-overflow-y-auto">
+          <div className="text-xs font-mono text-gray-600 max-h-20 overflow-y-auto">
             {transaction.data}
           </div>
         </div>
@@ -225,20 +218,20 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
 
       {/* 错误提示 */}
       {error && (
-        <div className="plasmo-bg-red-50 plasmo-border plasmo-border-red-200 plasmo-p-3 plasmo-rounded-lg plasmo-mb-4">
-          <p className="plasmo-text-sm plasmo-text-red-800">
+        <div className="bg-red-50 border border-red-200 p-3 rounded-lg mb-4">
+          <p className="text-sm text-red-800">
             ❌ {error}
           </p>
         </div>
       )}
 
       {/* 风险提示 */}
-      <div className="plasmo-bg-orange-50 plasmo-p-3 plasmo-rounded-lg plasmo-mb-6">
-        <div className="plasmo-flex plasmo-items-start plasmo-space-x-2">
-          <span className="plasmo-text-orange-500 plasmo-mt-0.5">⚠️</span>
-          <div className="plasmo-text-xs plasmo-text-orange-800">
-            <p className="plasmo-font-medium plasmo-mb-1">安全提醒</p>
-            <ul className="plasmo-space-y-0.5 plasmo-list-disc plasmo-list-inside">
+      <div className="bg-orange-50 p-3 rounded-lg mb-6">
+        <div className="flex items-start space-x-2">
+          <span className="text-orange-500 mt-0.5">⚠️</span>
+          <div className="text-xs text-orange-800">
+            <p className="font-medium mb-1">安全提醒</p>
+            <ul className="space-y-0.5 list-disc list-inside">
               <li>请确认您信任接收地址</li>
               <li>交易一旦发送，无法撤销</li>
               <li>请仔细检查交易金额和Gas费用</li>
@@ -248,20 +241,22 @@ export const TransactionConfirmPage: React.FC<TransactionConfirmProps> = ({
       </div>
 
       {/* 操作按钮 */}
-      <div className="plasmo-grid plasmo-grid-cols-2 plasmo-gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <button
           onClick={handleCancel}
           disabled={isProcessing}
-          className="plasmo-bg-gray-100 plasmo-text-gray-700 plasmo-px-4 plasmo-py-3 plasmo-rounded-lg plasmo-font-medium hover:plasmo-bg-gray-200 plasmo-transition-colors disabled:plasmo-opacity-50 disabled:plasmo-cursor-not-allowed">
+          className="bg-gray-100 text-gray-700 px-4 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           拒绝
         </button>
         <button
           onClick={handleConfirm}
           disabled={isProcessing}
-          className="plasmo-bg-blue-600 plasmo-text-white plasmo-px-4 plasmo-py-3 plasmo-rounded-lg plasmo-font-medium hover:plasmo-bg-blue-700 plasmo-transition-colors disabled:plasmo-opacity-50 disabled:plasmo-cursor-not-allowed">
+          className="bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {isProcessing ? (
-            <div className="plasmo-flex plasmo-items-center plasmo-justify-center plasmo-space-x-2">
-              <div className="plasmo-w-4 plasmo-h-4 plasmo-border-2 plasmo-border-white plasmo-border-t-transparent plasmo-rounded-full plasmo-animate-spin"></div>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               <span>处理中...</span>
             </div>
           ) : (

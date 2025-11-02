@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useWalletStore } from '../../../store/WalletStore'
+import { useWalletStore } from '../../stores/walletStore'
 
 interface DAppPermission {
   id: string
@@ -65,7 +65,7 @@ const PERMISSION_DESCRIPTIONS: Record<string, { name: string; description: strin
 }
 
 export const PermissionsPage = () => {
-  const walletStore = useWalletStore()
+  const { currentAccount } = useWalletStore()
   const [permissions, setPermissions] = useState<DAppPermission[]>([])
   const [selectedApp, setSelectedApp] = useState<DAppPermission | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useWalletStore } from '../../../store/WalletStore'
+import { useWalletStore } from '../../stores/walletStore'
 
 interface DAppConnection {
   id: string
@@ -22,7 +22,7 @@ interface PendingRequest {
 }
 
 export const ConnectionRequestsPage = () => {
-  const walletStore = useWalletStore()
+  const { currentAccount } = useWalletStore()
   const [connections, setConnections] = useState<DAppConnection[]>([])
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([])
   const [selectedConnection, setSelectedConnection] = useState<DAppConnection | null>(null)

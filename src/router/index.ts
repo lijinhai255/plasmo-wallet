@@ -4,7 +4,6 @@ import { AssetsPage } from "../pages/AssetsPage"
 import { SettingsPage } from "../pages/SettingsPage"
 import { PasswordPage } from "../pages/PasswordPage"
 import { ErrorTestPage } from "../pages/ErrorTestPage"
-import { TestPage } from "../pages/TestPage"
 import { TokenManager } from "../components/TokenManager"
 import { WalletStatus } from "../components/WalletStatus"
 import { TransactionConfirmPage } from "../pages/dapp/TransactionConfirmPage"
@@ -99,63 +98,56 @@ export const routes: RouteConfig[] = [
     label: "网络管理",
     icon: "🌐"
   },
-  {
-    path: "/connections",
-    component: ConnectionRequestsPage,
-    label: "DApp连接",
-    icon: "🔗"
-  },
-  {
-    path: "/permissions",
-    component: PermissionsPage,
-    label: "权限管理",
-    icon: "🛡️"
-  },
+  // {
+  //   path: "/connections",
+  //   component: ConnectionRequestsPage,
+  //   label: "DApp连接",
+  //   icon: "🔗"
+  // },
+  // {
+  //   path: "/permissions",
+  //   component: PermissionsPage,
+  //   label: "权限管理",
+  //   icon: "🛡️"
+  // },
   {
     path: "/network",
     component: NetworkPage,
     label: "网络选择",
     icon: "🌐"
   },
-  {
-    path: "/wallet-status",
-    component: WalletStatusPage,
-    label: "钱包状态",
-    icon: "📊"
-  },
-  {
-    path: "/settings",
-    component: SettingsPage,
-    label: "设置",
-    icon: "⚙️"
-  },
-  {
-    path: "/password",
-    component: PasswordPage,
-    label: "密码",
-    icon: "🔐"
-  },
-  {
-    path: "/error-test",
-    component: ErrorTestPage,
-    label: "错误测试",
-    icon: "🧪",
-    developmentOnly: true
-  },
-  {
-    path: "/test",
-    component: TestPage,
-    label: "Sepolia测试",
-    icon: "🧪",
-    developmentOnly: true
-  },
-  {
-    path: "/transaction-confirm",
-    component: TransactionConfirmPage,
-    label: "交易确认",
-    icon: "✅",
-    developmentOnly: true // 通常这个页面通过模态框调用，不在导航中显示
-  }
+  // {
+  //   path: "/wallet-status",
+  //   component: WalletStatusPage,
+  //   label: "钱包状态",
+  //   icon: "📊"
+  // },
+  // {
+  //   path: "/settings",
+  //   component: SettingsPage,
+  //   label: "设置",
+  //   icon: "⚙️"
+  // },
+  // {
+  //   path: "/password",
+  //   component: PasswordPage,
+  //   label: "密码",
+  //   icon: "🔐"
+  // },
+  // {
+  //   path: "/error-test",
+  //   component: ErrorTestPage,
+  //   label: "错误测试",
+  //   icon: "🧪",
+  //   developmentOnly: true
+  // },
+  // {
+  //   path: "/transaction-confirm",
+  //   component: TransactionConfirmPage,
+  //   label: "交易确认",
+  //   icon: "✅",
+  //   developmentOnly: true // 通常这个页面通过模态框调用，不在导航中显示
+  // }
 ]
 
 export const getVisibleRoutes = () => {
