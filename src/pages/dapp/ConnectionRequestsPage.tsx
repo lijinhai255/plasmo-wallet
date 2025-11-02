@@ -31,7 +31,35 @@ export const ConnectionRequestsPage = () => {
 
   useEffect(() => {
     loadData()
+    checkPendingRequests()
+
+    // 定期检查pending请求
+    const interval = setInterval(checkPendingRequests, 2000)
+    return () => clearInterval(interval)
   }, [])
+
+  const checkPendingRequests = async () => {
+    try {
+      // 向background script查询pending请求
+      const response = await chrome.runtime.sendMessage({
+        type: 'GET_PENDING_REQUESTS'
+      })
+
+      if (response && response.data && response.data.pendingRequests) {
+        const realPendingRequests = response.data.pendingRequests.map((req: any) => ({
+          id: req.messageId,
+          origin: req.origin,
+          title: new URL(req.origin).hostname,
+          requestedPermissions: ['eth_accounts'],
+          createdAt: Date.now()
+        }))
+
+        setPendingRequests(realPendingRequests)
+      }
+    } catch (error) {
+      // 忽略错误，可能是background script未响应
+    }
+  }
 
   const loadData = async () => {
     setLoading(true)
@@ -86,10 +114,14 @@ export const ConnectionRequestsPage = () => {
       const request = pendingRequests.find(r => r.id === requestId)
       if (!request) return
 
-      // TODO: 实现真实的连接批准逻辑
-      console.log('批准连接请求:', request)
+      // 直接通过消息调用background script的处理函数
+      await chrome.runtime.sendMessage({
+        type: 'HANDLE_PENDING_REQUEST',
+        approved: true,
+        messageId: requestId
+      })
 
-      // 模拟处理
+      // 创建连接记录
       const newConnection: DAppConnection = {
         id: request.id,
         origin: request.origin,
@@ -110,8 +142,13 @@ export const ConnectionRequestsPage = () => {
 
   const handleRejectRequest = async (requestId: string) => {
     try {
-      // TODO: 实现真实的连接拒绝逻辑
-      console.log('拒绝连接请求:', requestId)
+      // 直接通过消息调用background script的处理函数
+      await chrome.runtime.sendMessage({
+        type: 'HANDLE_PENDING_REQUEST',
+        approved: false,
+        messageId: requestId
+      })
+
       setPendingRequests(prev => prev.filter(r => r.id !== requestId))
     } catch (error) {
       console.error('拒绝连接失败:', error)

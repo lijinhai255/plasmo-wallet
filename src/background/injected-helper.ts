@@ -1,12 +1,9 @@
-/**
- * Injected Helper - 外部 DApp 交互代理
- * 学习参考项目的简单注入模式，只提供基础方法
- */
 
-export default function injectPlasmoWallet() {
+ 
+export default function injectMyWallet() {
   console.log("injected-helper");
-
-  if (window.plasmoWallet || window.plasmoWalletInjected) {
+  
+  if (window.myWallet || window.myWalletInjected) {
     return
   }
 
@@ -14,26 +11,24 @@ export default function injectPlasmoWallet() {
   const WALLET_GET_ACCOUNT = 'WALLET_GET_ACCOUNT'
   const WALLET_SIGN_MESSAGE = 'WALLET_SIGN_MESSAGE'
   const WALLET_DISCONNECT = 'WALLET_DISCONNECT'
-
   // 请求id
   const generateRequestId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
-
-  const plasmoWallet = {
+  const myWallet = {
     // 连接钱包
     connect: async () => {
       console.log('connect');
-
+      
       return new Promise((resolve, reject) => {
         console.log('发送信息到 message-bridge');
-
+        
         const requestId = generateRequestId()
         console.log('requestId :', requestId);
         console.log("aaaaaa");
-
+        
         console.log(WALLET_CONNECT);
-
-
-
+        
+        
+        
         // 向桥接发送连接请求
         const message = {
           type: WALLET_CONNECT,
@@ -43,18 +38,18 @@ export default function injectPlasmoWallet() {
         // window.postMessage(message, '*')
         console.log(message);
         console.log(window.location.origin);
-
-
+        
+        
         window.postMessage(message, "*")
 
         // 监听连接结果
         const handleResponse = (event: MessageEvent) => {
           console.log("handleResponse:", event);
-
+          
           // if (
-          //   event.source !== window ||
-          //   !event.data ||
-          //   event.data.from !== 'injected-helper' ||
+          //   event.source !== window || 
+          //   !event.data || 
+          //   event.data.from !== 'injected-helper' || 
           //   event.data.requestId !== requestId) {
           //   return
           // }
@@ -90,9 +85,9 @@ export default function injectPlasmoWallet() {
 
         const handleResponse = (event: MessageEvent) => {
           // if (
-          //   event.source !== window ||
-          //   !event.data ||
-          //   event.data.from !== 'injected-helper' ||
+          //   event.source !== window || 
+          //   !event.data || 
+          //   event.data.from !== 'injected-helper' || 
           //   event.data.requestId !== requestId) {
           //   return
           // }
@@ -124,7 +119,7 @@ export default function injectPlasmoWallet() {
         console.log('22');
         const handleResponse = (event: MessageEvent) => {
           console.log(event);
-
+          
           if (!_isValidResponse(event, requestId)) return
           window.removeEventListener('message', handleResponse)
 
@@ -167,9 +162,7 @@ export default function injectPlasmoWallet() {
             event.data.from === 'message-bridge' &&
             event.data.requestId === requestId
   }
-  window.plasmoWallet = plasmoWallet
-  window.plasmoEthereum = plasmoWallet
-  window.myPlasmoWallet = plasmoWallet
-  window.plasmoWalletInjected = true
-  console.log("plasmoWallet 已经注入到页面");
-}
+  window.myWallet = myWallet
+  window.myWalletInjected = true
+  console.log("myWallet 已经注入到页面"); 
+}  

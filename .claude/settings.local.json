@@ -63,7 +63,9 @@
       "Bash(git init:*)",
       "Bash(git branch:*)",
       "Bash(git remote add:*)",
-      "mcp__playwright__browser_evaluate"
+      "mcp__playwright__browser_evaluate",
+      "WebFetch(domain:stackoverflow.com)",
+      "WebFetch(domain:docs.ethers.org)"
     ],
     "deny": [],
     "ask": []

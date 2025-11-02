@@ -133,89 +133,6 @@
     <div class="container">
         <h1>🔗 PlasmoWallet 专用接口测试</h1>
 
-        <div class="info" style="background-color: #fff3cd; border-color: #ffeaa7; color: #856404;">
-            <strong>🚨 重要提示:</strong> 本页面专门测试 PlasmoWallet 接口，不使用标准的 window.ethereum 接口
-            <br><br>
-            <strong>🎯 推荐使用接口:</strong>
-            <code>window.plasmoEthereum</code> 或 <code>window.myPlasmoWallet</code>
-            <br><br>
-            <strong>📝 为何不使用 window.ethereum?</strong>
-            <ul style="margin: 10px 0; padding-left: 20px;">
-                <li>避免与其他钱包插件（MetaMask、Phantom等）的冲突</li>
-                <li>确保调用 PlasmoWallet 的功能而非其他钱包</li>
-                <li>提供明确的钱包识别和调试信息</li>
-            </ul>
-        </div>
-
-        <div id="status" class="status">
-            检查 PlasmoWallet 接口状态...
-        </div>
-
-        <div class="grid">
-            <div class="card">
-                <h3>🎯 PlasmoWallet 专用接口</h3>
-                <div class="provider-info">
-                    <dt>window.plasmoEthereum:</dt>
-                    <dd id="plasmo-ethereum-exists">检查中...</dd>
-
-                    <dt>window.myPlasmoWallet:</dt>
-                    <dd id="my-plasmo-wallet-exists">检查中...</dd>
-
-                    <dt>window.plasmoWallet:</dt>
-                    <dd id="plasmo-wallet-exists">检查中...</dd>
-
-                    <dt>isPlasmoWallet:</dt>
-                    <dd id="is-plasmo-wallet">检查中...</dd>
-
-                    <dt>连接状态:</dt>
-                    <dd id="connection-status">检查中...</dd>
-
-                    <dt>当前账户:</dt>
-                    <dd id="current-account">检查中...</dd>
-
-                    <dt>当前链ID:</dt>
-                    <dd id="current-chain">检查中...</dd>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>⚠️ window.ethereum (冲突接口)</h3>
-                <div class="provider-info">
-                    <dt>window.ethereum:</dt>
-                    <dd id="ethereum-exists">检查中...</dd>
-
-                    <dt>isMetaMask:</dt>
-                    <dd id="is-metamask">检查中...</dd>
-
-                    <dt>冲突检测:</dt>
-                    <dd id="conflict-detected">检查中...</dd>
-
-                    <div style="grid-column: 1 / -1; margin-top: 10px;">
-                        <div class="info" style="font-size: 12px;">
-                            💡 如果存在其他钱包，PlasmoWallet会自动覆盖此接口
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card">
-                <h3>支持的方法</h3>
-                <div class="provider-info">
-                    <dt>request:</dt>
-                    <dd id="has-request">检查中...</dd>
-
-                    <dt>enable:</dt>
-                    <dd id="has-enable">检查中...</dd>
-
-                    <dt>send:</dt>
-                    <dd id="has-send">检查中...</dd>
-
-                    <dt>事件系统:</dt>
-                    <dd id="has-events">检查中...</dd>
-                </div>
-            </div>
-        </div>
-
         <div class="card">
             <h3>功能测试</h3>
 
@@ -303,10 +220,10 @@
 
         function checkProvider() {
             // 🔍 检查 PlasmoWallet 专用接口
-            const hasPlasmoEthereum = typeof window.plasmoEthereum !== 'undefined';
-            const hasMyPlasmoWallet = typeof window.myPlasmoWallet !== 'undefined';
-            const hasPlasmoWallet = typeof window.plasmoWallet !== 'undefined';
-            const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+            const hasPlasmoEthereum = typeof window.myWallet !== 'undefined';
+            const hasMyPlasmoWallet = typeof window.myWallet !== 'undefined';
+            const hasPlasmoWallet = typeof window.myWallet !== 'undefined';
+            const plasmoProvider = window.myWallet 
 
             // 🔍 检查 window.ethereum（冲突接口）
             const hasEthereum = typeof window.ethereum !== 'undefined';
@@ -414,7 +331,7 @@
             btn.innerHTML = '<span class="loading"></span> 连接中...';
 
             try {
-                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+                const plasmoProvider = window.myWallet
 
                 if (!plasmoProvider) {
                     throw new Error('未检测到PlasmoWallet接口');
@@ -449,7 +366,7 @@
 
         async function testGetAccounts() {
             try {
-                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+                 const plasmoProvider = window.myWallet
 
                 if (!plasmoProvider) {
                     throw new Error('未检测到PlasmoWallet接口');
@@ -480,7 +397,7 @@
 
         async function testGetChainId() {
             try {
-                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+                                 const plasmoProvider = window.myWallet
 
                 if (!plasmoProvider) {
                     throw new Error('未检测到PlasmoWallet接口');

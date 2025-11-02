@@ -1,20 +1,45 @@
 import React from "react"
-import { Router } from "./components/Router"
-import "./style.css"
+import { useWalletStore } from "./stores/walletStore";
+import { WalletSetup } from "./components/WalletSetup";
+import { WalletUnlock } from "./components/WalletUnlock";
+import { WalletDashboard } from "./components/WalletDashboard";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import "./style.css";
 
-function IndexPopup() {
+const queryClient = new QueryClient({})
+
+export default function popup() {
+  const { accounts, isLocked } = useWalletStore()
+  console.log(accounts);
+
+  // 如果没有账户，显示设置页面
+  if (accounts.length === 0) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="w-[400px] min-h-[600px] bg-white">
+          <WalletSetup />
+        </div>
+      </QueryClientProvider>
+    )
+  }
+
+  // 如果钱包被锁定，显示解锁页面
+  if (isLocked) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <div className="w-[400px] min-h-[600px] bg-white">
+          <WalletUnlock />
+        </div>
+      </QueryClientProvider>
+    )
+  }
+
+  // 显示钱包主界面
   return (
-    <div style={{
-      width: "400px",
-      minHeight: "600px",
-      fontFamily: "Arial, sans-serif",
-      overflow: "hidden",
-      backgroundColor: "#ffffff",
-      color: "#1f2937"
-    }}>
-      <Router initialPath="/" />
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="w-[400px] min-h-[600px] bg-white">
+        <WalletDashboard />
+      </div>
+    </QueryClientProvider>
   )
 }
-
-export default IndexPopup

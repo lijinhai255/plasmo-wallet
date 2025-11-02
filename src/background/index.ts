@@ -1,16 +1,14 @@
-import { useWalletStore } from '../../store/WalletStore';
-import { useChainStore } from '../../store/ChainStore';
-import injectPlasmoWallet from './injected-helper';
+import { useWalletStore } from '../stores/walletStore';
+import injectMyWallet from './injected-helper';
 import * as constant from './type_constant';
 
 console.log('background 脚本启动了');
-
 
 // 初始化钱包状态
 const initWallet = () => {
   const walletStore = useWalletStore.getState()
   // TODO 初始化逻辑
-  console.log('🔄 初始化钱包状态完成');
+  console.log('🔄 初始化钱包状态完成'); 
 }
 
 // 注册消息监听器
@@ -18,76 +16,45 @@ const setupMessageListener = () => {
   console.log('🔄 监听来自 message-bridge 的消息');
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("background 收到消息:", message.type, "来自标签页：", sender.tab?.id);
-
-    const walletStore = useWalletStore.getState()
-
     // 处理连接请求
     if (message.type === constant.WALLET_CONNECT) {
-      console.log('🔄 处理 DApp 连接请求');
-
-      // 检查钱包是否已经连接
-      if (walletStore.currentWallet?.address) {
-        console.log('✅ 钱包已连接，直接返回地址');
-        sendResponse({
-          data: { account: walletStore.currentWallet.address }
-        })
-        return true
-      }
-
-      // 确保钱包已初始化
-      if (!walletStore.isInitialized) {
-        walletStore.initializeWallet()
-      }
-
-      // 弹出钱包界面让用户连接
-      chrome.action.openPopup().then(() => {
-        console.log('🎯 已打开钱包弹窗');
-
-        // 监听连接结果
-        const checkConnection = setInterval(() => {
-          const currentWallet = walletStore.currentWallet
-          if (currentWallet?.address) {
-            clearInterval(checkConnection)
-            console.log('✅ 用户已连接钱包');
-            sendResponse({
-              data: { account: currentWallet.address }
-            })
-          }
-        }, 500)
-
-        // 10秒超时
-        setTimeout(() => {
-          clearInterval(checkConnection)
+      const walletStore = useWalletStore.getState()
+      try {
+        walletStore.connect().then(() => {
+          const account = walletStore.currentAccount
           sendResponse({
-            data: { error: '连接超时，请用户手动连接钱包' }
+            data: { account }
           })
-        }, 10000)
-      }).catch((error) => {
-        console.error('❌ 打开钱包弹窗失败:', error)
-        sendResponse({
-          data: { error: '无法打开钱包界面' }
+        }).catch((error) => {
+          sendResponse({
+            data: { error: error.message },
+          })
         })
-      })
-
+      } catch (error) {
+        sendResponse({
+          data: { error: error instanceof Error ? error.message : '连接失败' },
+        })
+      }
       return true
     }
 
     // 获取账号请求
     if (message.type === constant.WALLET_GET_ACCOUNT) {
-      const currentWallet = walletStore.currentWallet
+      const walletStore = useWalletStore.getState()
+      const account = walletStore.currentAccount
       sendResponse({
-        data: { account: currentWallet?.address || null }
+        data: { account }
       })
       return true
     }
-
+    
     // 处理签名
     if (message.type === constant.WALLET_SIGN_MESSAGE) {
       if (!message.data || !message.data.message) {
         sendResponse({
           data: { error: '缺少签名信息' },
         })
-        return true
+        return true 
       }
       const walletStore = useWalletStore.getState()
       try {
@@ -113,7 +80,7 @@ const setupMessageListener = () => {
     // 处理断开连接
     if (message.type === constant.WALLET_DISCONNECT) {
       const walletStore = useWalletStore.getState()
-      walletStore.lockWallet()
+      walletStore.disconnect()
       sendResponse({
         data: { success: true }
       })
@@ -133,16 +100,16 @@ const setupScriptInjection = () => {
   // 当页面加载完成时注入
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url && !tab.url.startsWith('chrome://')) {
-      console.log("🔄 页面加载完成，开始注入 plasmoWallet:", tab.url)
+      console.log("🔄 页面加载完成，开始注入 myWallet:", tab.url)
       chrome.scripting.executeScript({
         target: { tabId },
         world: "MAIN",
-        func: injectPlasmoWallet
+        func: injectMyWallet
       }, () => {
         if (chrome.runtime.lastError) {
           console.error("❌ Background script: 注入失败", chrome.runtime.lastError)
         } else {
-          console.log("✅ Background script: plasmoWallet 注入完成")
+          console.log("✅ Background script: myWallet 注入完成")
         }
       })
     }
@@ -152,20 +119,20 @@ const setupScriptInjection = () => {
   chrome.tabs.onActivated.addListener((e) => {
     chrome.tabs.get(e.tabId, (tab) => {
       if (tab.url && !tab.url.startsWith('chrome://')) {
-        console.log("🔄 标签页激活，注入 plasmoWallet:", tab.url)
+        console.log("🔄 标签页激活，注入 myWallet:", tab.url)
         chrome.scripting.executeScript({
           target: { tabId: e.tabId },
           world: "MAIN",
-          func: injectPlasmoWallet
+          func: injectMyWallet
         }, () => {
           if (chrome.runtime.lastError) {
             console.error("❌ Background script: 注入失败", chrome.runtime.lastError)
           } else {
-            console.log("✅ Background script: plasmoWallet 注入完成")
+            console.log("✅ Background script: myWallet 注入完成")
           }
-        })
+        })  
       }
-    })
+    })  
   })
 }
 

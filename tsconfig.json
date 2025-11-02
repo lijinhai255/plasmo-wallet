@@ -6,11 +6,13 @@
   "include": [
     ".plasmo/index.d.ts",
     "./**/*.ts",
-    "./**/*.tsx"
+    "./**/*.tsx",
+    "global.d.ts"
   ],
   "compilerOptions": {
+    "jsx": "react",
     "paths": {
-      "~*": [
+      "@/*": [
         "./src/*"
       ]
     },
