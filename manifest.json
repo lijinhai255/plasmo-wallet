@@ -1,0 +1,8 @@
+{
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage",
+    "notifications"
+  ]
+}

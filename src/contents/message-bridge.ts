@@ -14,7 +14,7 @@
 
 // 监听来自 injected-helper 的消息
 window.addEventListener("message", (event) => {
-  // console.log("收到来自 injected-helper 的消息：", event);
+  console.log("🔍 message-bridge: 收到消息", event.data);
   if (
     event.source !== window ||
     !event.data ||
@@ -24,6 +24,12 @@ window.addEventListener("message", (event) => {
   ) {
     return
   }
+
+  console.log("🔍 message-bridge: 转发消息到background", {
+    type: event.data.type,
+    requestId: event.data.requestId,
+    data: event.data.data
+  })
 
   // 转发消息到background
   chrome.runtime.sendMessage(

@@ -474,50 +474,28 @@
 
         async function testPersonalSign() {
             try {
-                const plasmoProvider = window.plasmoEthereum || window.myPlasmoWallet || window.plasmoWallet;
+                console.log('🔍 testPersonalSign: 开始执行')
+                const myWallet = window.myWallet
+                console.log('🔍 testPersonalSign: myWallet =', myWallet)
 
-                if (!plasmoProvider) {
+                if (!myWallet) {
                     throw new Error('未检测到PlasmoWallet接口');
                 }
 
                 log('✍️ 开始测试个人签名...');
 
-                let accounts;
-
-                // 先获取账户
-                if (plasmoProvider.request) {
-                    accounts = await plasmoProvider.request({
-                        method: 'eth_accounts'
-                    });
-                } else if (plasmoProvider.getAccount) {
-                    const account = await plasmoProvider.getAccount();
-                    accounts = account ? [account] : [];
+                // 直接测试 signMessage 方法
+                if (!myWallet.signMessage) {
+                    throw new Error('myWallet.signMessage 方法不存在');
                 }
 
-                if (!accounts || accounts.length === 0) {
-                    log('❌ 需要先连接账户');
-                    return;
-                }
-
+                console.log('🔍 调用 myWallet.signMessage')
                 const message = 'Hello from Plasmo Wallet!';
-                let signature;
-
-                // 使用标准EIP-1193方法签名
-                if (plasmoProvider.request) {
-                    signature = await plasmoProvider.request({
-                        method: 'personal_sign',
-                        params: [message, accounts[0]]
-                    });
-                } else if (plasmoProvider.signMessage) {
-                    // 使用自定义签名方法
-                    signature = await plasmoProvider.signMessage(message);
-                } else {
-                    throw new Error('当前提供者不支持签名方法');
-                }
-
+                const signature = await myWallet.signMessage(message);
                 log(`✅ 签名成功: ${signature}`);
             } catch (error) {
                 log(`❌ 个人签名失败: ${error.message}`);
+                console.error('签名错误详情:', error);
             }
         }
 

@@ -34,11 +34,15 @@ export default function injectMyWallet() {
           return myWallet.getBalance();  
         case 'personal_sign':
         case 'eth_sign':
+          console.log('🔍 injected-helper: 收到签名请求', { method, params })
           const message = params[0]
+          console.log('🔍 injected-helper: 调用 myWallet.signMessage', message)
           return myWallet.signMessage(message)
         case 'wallet_disconnect':
           return myWallet.disconnect()
-        default:  
+        case 'test_signature_store':
+          return myWallet.testSignatureStore()
+        default:
           throw new Error(`不支持的方法: ${method}`)
       }
     },
@@ -215,7 +219,7 @@ export default function injectMyWallet() {
     },
     // 签名信息
     signMessage: async (message: string) => {
-      console.log('signMessage:', message);
+      console.log('🔍 myWallet.signMessage: 开始执行', message);
       return new Promise((resolve, reject) => {
         const requestId = generateRequestId()
         const messageData = {
@@ -224,26 +228,87 @@ export default function injectMyWallet() {
           requestId,
           from : 'injected-helper'
         }
-        console.log(messageData);
         window.postMessage(messageData, window.location.origin)
-        console.log('22');
+
         const handleResponse = (event: MessageEvent) => {
-          console.log(event);
-          
+          console.log('📨 收到签名响应:', event);
+
           if (!_isValidResponse(event, requestId)) return
           window.removeEventListener('message', handleResponse)
 
           if (event.data.success) {
-            resolve(event.data.data.signedMessage)
+            const responseData = event.data.data
+
+            // 检查是否是pending状态（需要等待用户确认）
+            if (responseData.status === 'pending' && responseData.requestId) {
+              console.log('⏳ 等待用户确认签名:', responseData.requestId);
+
+              // 生成状态检查的requestId
+              const statusCheckRequestId = generateRequestId()
+
+              // 开始轮询检查签名状态
+              const checkSignatureStatus = () => {
+                // 向background发送状态检查请求
+                const statusCheckData = {
+                  type: 'WALLET_CHECK_SIGNATURE_STATUS',
+                  data: { requestId: responseData.requestId },
+                  requestId: statusCheckRequestId,
+                  from: 'injected-helper'
+                }
+
+                window.postMessage(statusCheckData, window.location.origin)
+              }
+
+              // 设置轮询间隔
+              const pollInterval = setInterval(checkSignatureStatus, 1000)
+
+              // 设置状态检查的响应处理器
+              const handleStatusResponse = (statusEvent: MessageEvent) => {
+                if (statusEvent.data.from === 'message-bridge' &&
+                    statusEvent.data.requestId === statusCheckRequestId) {
+
+                  const statusData = statusEvent.data.data
+
+                  if (statusData.status === 'completed') {
+                    clearInterval(pollInterval)
+                    window.removeEventListener('message', handleStatusResponse)
+
+                    if (statusData.result) {
+                      resolve(statusData.result)
+                    } else if (statusData.error) {
+                      reject(new Error(statusData.error))
+                    }
+                  }
+                }
+              }
+
+              window.addEventListener('message', handleStatusResponse)
+
+              // 设置超时
+              setTimeout(() => {
+                clearInterval(pollInterval)
+                window.removeEventListener('message', handleStatusResponse)
+                reject(new Error('签名确认超时'))
+              }, 30000) // 30秒超时
+
+            } else if (responseData.signedMessage) {
+              // 直接返回签名结果（向后兼容）
+              resolve(responseData.signedMessage)
+            } else {
+              reject(new Error(responseData.error || '签名失败'))
+            }
           } else {
-            reject(event.data.error || '签名失败')
+            reject(new Error(event.data.error || '签名失败'))
           }
         }
+
         window.addEventListener('message', handleResponse)
+
+        // 设置初始超时
         setTimeout(() => {
           window.removeEventListener('message', handleResponse)
-          reject('签名超时')
-        }, 30000)
+          reject(new Error('签名请求超时'))
+        }, 35000) // 35秒超时（比轮询稍长）
       })
     },
     // 断开连接
@@ -263,6 +328,36 @@ export default function injectMyWallet() {
           resolve(true)
         }
         window.addEventListener('message', handleResponse)
+      })
+    },
+    // 测试签名存储功能
+    testSignatureStore: async () => {
+      return new Promise((resolve, reject) => {
+        const requestId = generateRequestId()
+        const message = {
+          type: 'test_signature_store',
+          requestId,
+          from: 'injected-helper'
+        }
+        window.postMessage(message, "*")
+
+        const handleResponse = (event: MessageEvent) => {
+          if (!_isValidResponse(event, requestId)) return
+          window.removeEventListener('message', handleResponse)
+
+          if (event.data && event.data.data) {
+            resolve(event.data.data)
+          } else {
+            reject(new Error(event.data.error || '测试失败'))
+          }
+        }
+        window.addEventListener('message', handleResponse)
+
+        // 设置超时
+        setTimeout(() => {
+          window.removeEventListener('message', handleResponse)
+          reject(new Error('测试请求超时'))
+        }, 10000) // 10秒超时
       })
     }
   }
