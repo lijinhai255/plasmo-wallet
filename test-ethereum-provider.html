@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ethereum Provider 测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+            border: 1px solid #bbdefb;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-result {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .card {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            background-color: #fff;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        h3 {
+            color: #666;
+            margin-top: 0;
+        }
+        .provider-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        .provider-info dt {
+            font-weight: bold;
+            color: #666;
+        }
+        .provider-info dd {
+            margin: 0;
+            color: #333;
+            word-break: break-all;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔗 Ethereum Provider (EIP-1193) 测试</h1>
+
+        <div id="status" class="status">
+            检查钱包提供者状态...
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <h3>提供者信息</h3>
+                <div class="provider-info">
+                    <dt>window.ethereum:</dt>
+                    <dd id="ethereum-exists">检查中...</dd>
+
+                    <dt>isMetaMask:</dt>
+                    <dd id="is-metamask">检查中...</dd>
+
+                    <dt>连接状态:</dt>
+                    <dd id="connection-status">检查中...</dd>
+
+                    <dt>当前账户:</dt>
+                    <dd id="current-account">检查中...</dd>
+
+                    <dt>当前链ID:</dt>
+                    <dd id="current-chain">检查中...</dd>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>支持的方法</h3>
+                <div class="provider-info">
+                    <dt>request:</dt>
+                    <dd id="has-request">检查中...</dd>
+
+                    <dt>enable:</dt>
+                    <dd id="has-enable">检查中...</dd>
+
+                    <dt>send:</dt>
+                    <dd id="has-send">检查中...</dd>
+
+                    <dt>事件系统:</dt>
+                    <dd id="has-events">检查中...</dd>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>功能测试</h3>
+
+            <div style="margin: 20px 0;">
+                <button onclick="testRequestAccounts()" id="btn-request-accounts">
+                    🔑 请求账户连接
+                </button>
+                <button onclick="testGetAccounts()">
+                    👥 获取当前账户
+                </button>
+                <button onclick="testGetChainId()">
+                    🔗 获取链ID
+                </button>
+                <button onclick="testGetBalance()">
+                    💰 获取余额
+                </button>
+            </div>
+
+            <div style="margin: 20px 0;">
+                <button onclick="testPersonalSign()" id="btn-sign">
+                    ✍️ 个人签名测试
+                </button>
+                <button onclick="testSendTransaction()" id="btn-transaction">
+                    📤 发送交易测试
+                </button>
+                <button onclick="testEvents()">
+                    📡 事件系统测试
+                </button>
+                <button onclick="clearResults()">
+                    🗑️ 清空结果
+                </button>
+            </div>
+
+            <div id="test-results"></div>
+        </div>
+
+        <div class="card">
+            <h3>事件日志</h3>
+            <div id="event-log" class="test-result" style="height: 150px;">
+                等待事件...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let testResults = [];
+        let eventLog = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+
+            if (type === 'event') {
+                eventLog.unshift(entry);
+                if (eventLog.length > 100) eventLog.pop();
+                updateEventLog();
+            } else {
+                testResults.unshift(entry);
+                if (testResults.length > 50) testResults.pop();
+                updateTestResults();
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        function updateTestResults() {
+            document.getElementById('test-results').innerHTML =
+                testResults.map(result => `<div class="test-result">${result}</div>`).join('');
+        }
+
+        function updateEventLog() {
+            document.getElementById('event-log').textContent = eventLog.join('\n');
+        }
+
+        function clearResults() {
+            testResults = [];
+            eventLog = [];
+            updateTestResults();
+            updateEventLog();
+        }
+
+        function checkProvider() {
+            const hasEthereum = typeof window.ethereum !== 'undefined';
+            const provider = window.ethereum;
+
+            // 更新基本信息
+            document.getElementById('ethereum-exists').textContent = hasEthereum ? '✅ 存在' : '❌ 不存在';
+            document.getElementById('is-metamask').textContent = provider?.isMetaMask ? '✅ 是' : '❌ 否';
+            document.getElementById('has-request').textContent = typeof provider?.request === 'function' ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('has-enable').textContent = typeof provider?.enable === 'function' ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('has-send').textContent = typeof provider?.send === 'function' ? '✅ 支持' : '❌ 不支持';
+            document.getElementById('has-events').textContent = provider?.on && provider?.removeListener ? '✅ 支持' : '❌ 不支持';
+
+            if (!hasEthereum) {
+                updateStatus('❌ 未检测到以太坊提供者，请确保钱包插件已安装并启用', 'error');
+                return false;
+            }
+
+            updateStatus('✅ 以太坊提供者检测成功', 'success');
+
+            // 更新连接状态
+            updateConnectionInfo();
+
+            // 设置事件监听
+            setupEventListeners();
+
+            return true;
+        }
+
+        function updateConnectionInfo() {
+            const provider = window.ethereum;
+            const connected = provider?.isConnected();
+
+            document.getElementById('connection-status').textContent = connected ? '✅ 已连接' : '❌ 未连接';
+            document.getElementById('current-account').textContent = provider?.selectedAddress || '未连接';
+            document.getElementById('current-chain').textContent = provider?.chainId || '未知';
+        }
+
+        function setupEventListeners() {
+            const provider = window.ethereum;
+            if (!provider) return;
+
+            log('📡 设置事件监听器...');
+
+            provider.on('accountsChanged', (accounts) => {
+                log(`🔄 accountsChanged: ${JSON.stringify(accounts)}`, 'event');
+                updateConnectionInfo();
+            });
+
+            provider.on('chainChanged', (chainId) => {
+                log(`🔄 chainChanged: ${chainId}`, 'event');
+                updateConnectionInfo();
+            });
+
+            provider.on('connect', (connectInfo) => {
+                log(`🔄 connect: ${JSON.stringify(connectInfo)}`, 'event');
+                updateConnectionInfo();
+            });
+
+            provider.on('disconnect', (error) => {
+                log(`🔄 disconnect: ${JSON.stringify(error)}`, 'event');
+                updateConnectionInfo();
+            });
+
+            log('✅ 事件监听器设置完成');
+        }
+
+        async function testRequestAccounts() {
+            const btn = document.getElementById('btn-request-accounts');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> 连接中...';
+
+            try {
+                log('🔑 开始测试 eth_requestAccounts...');
+                const accounts = await window.ethereum.request({
+                    method: 'eth_requestAccounts'
+                });
+                log(`✅ 成功获取账户: ${JSON.stringify(accounts)}`);
+                updateConnectionInfo();
+            } catch (error) {
+                log(`❌ 请求账户失败: ${error.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔑 请求账户连接';
+            }
+        }
+
+        async function testGetAccounts() {
+            try {
+                log('👥 开始测试 eth_accounts...');
+                const accounts = await window.ethereum.request({
+                    method: 'eth_accounts'
+                });
+                log(`✅ 当前账户: ${JSON.stringify(accounts)}`);
+            } catch (error) {
+                log(`❌ 获取账户失败: ${error.message}`);
+            }
+        }
+
+        async function testGetChainId() {
+            try {
+                log('🔗 开始测试 eth_chainId...');
+                const chainId = await window.ethereum.request({
+                    method: 'eth_chainId'
+                });
+                log(`✅ 当前链ID: ${chainId}`);
+                updateConnectionInfo();
+            } catch (error) {
+                log(`❌ 获取链ID失败: ${error.message}`);
+            }
+        }
+
+        async function testGetBalance() {
+            try {
+                log('💰 开始测试 eth_getBalance...');
+                const accounts = await window.ethereum.request({
+                    method: 'eth_accounts'
+                });
+
+                if (!accounts || accounts.length === 0) {
+                    log('❌ 需要先连接账户');
+                    return;
+                }
+
+                const balance = await window.ethereum.request({
+                    method: 'eth_getBalance',
+                    params: [accounts[0], 'latest']
+                });
+                log(`✅ 账户余额: ${balance} wei`);
+            } catch (error) {
+                log(`❌ 获取余额失败: ${error.message}`);
+            }
+        }
+
+        async function testPersonalSign() {
+            try {
+                log('✍️ 开始测试 personal_sign...');
+                const accounts = await window.ethereum.request({
+                    method: 'eth_accounts'
+                });
+
+                if (!accounts || accounts.length === 0) {
+                    log('❌ 需要先连接账户');
+                    return;
+                }
+
+                const message = 'Hello from Plasmo Wallet!';
+                const signature = await window.ethereum.request({
+                    method: 'personal_sign',
+                    params: [message, accounts[0]]
+                });
+                log(`✅ 签名成功: ${signature}`);
+            } catch (error) {
+                log(`❌ 个人签名失败: ${error.message}`);
+            }
+        }
+
+        async function testSendTransaction() {
+            try {
+                log('📤 开始测试 eth_sendTransaction...');
+                const accounts = await window.ethereum.request({
+                    method: 'eth_accounts'
+                });
+
+                if (!accounts || accounts.length === 0) {
+                    log('❌ 需要先连接账户');
+                    return;
+                }
+
+                const tx = {
+                    from: accounts[0],
+                    to: accounts[0],
+                    value: '0x0' // 0 ETH
+                };
+
+                const txHash = await window.ethereum.request({
+                    method: 'eth_sendTransaction',
+                    params: [tx]
+                });
+                log(`✅ 交易发送成功: ${txHash}`);
+            } catch (error) {
+                log(`❌ 发送交易失败: ${error.message}`);
+            }
+        }
+
+        async function testEvents() {
+            try {
+                log('📡 开始测试事件系统...');
+
+                // 测试自定义事件
+                const testListener = (data) => {
+                    log('✅ 自定义事件触发成功', 'event');
+                };
+
+                window.ethereum.on('test-event', testListener);
+
+                // 触发自定义事件（这不会在实际环境中触发，只是测试监听器设置）
+                setTimeout(() => {
+                    window.ethereum.removeListener('test-event', testListener);
+                    log('✅ 事件监听器测试完成');
+                }, 1000);
+
+            } catch (error) {
+                log(`❌ 事件测试失败: ${error.message}`);
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            log('🚀 页面加载完成，开始检测提供者...');
+
+            // 等待插件注入
+            setTimeout(() => {
+                const success = checkProvider();
+
+                if (success) {
+                    log('🎯 提供者检测完成，可以开始测试');
+                } else {
+                    log('❌ 请确保钱包插件已安装并刷新页面重试');
+                }
+            }, 2000);
+        });
+
+        // 监听提供者注入事件
+        window.addEventListener('ethereumProvider#initialized', (event) => {
+            log('🔔 检测到以太坊提供者注入事件', 'event');
+            setTimeout(() => {
+                checkProvider();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

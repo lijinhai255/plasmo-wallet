@@ -1,8 +1,116 @@
 import { useWalletStore } from '../../store/WalletStore';
+import { useChainStore } from '../../store/ChainStore';
 import injectPlasmoWallet from './injected-helper';
 import * as constant from './type_constant';
+import { getRPCService, RPCRequest, RPCResponse } from '../services/rpc-service';
 
 console.log('background 脚本启动了');
+
+// 处理EIP-1193标准请求
+const handleEthereumRequest = async (message: any, sender: chrome.runtime.MessageSender, sendResponse: (response: any) => void) => {
+  console.log('🔄 处理EIP-1193请求:', message.method, message.params);
+
+  const walletStore = useWalletStore.getState();
+  const chainStore = useChainStore.getState();
+  const rpcService = getRPCService();
+
+  try {
+    // 确保钱包已初始化
+    if (!walletStore.isInitialized) {
+      walletStore.initializeWallet();
+    }
+
+    const { method, params = [], requestId } = message;
+
+    // 构建RPC请求
+    const rpcRequest: RPCRequest = {
+      method,
+      params,
+      id: requestId
+    };
+
+    // 处理需要用户确认的操作
+    if (requiresUserConfirmation(method)) {
+      // 显示确认UI（这里简化处理，实际应该弹出确认页面）
+      const confirmed = await showConfirmationDialog(method, params, sender.tab?.id);
+
+      if (!confirmed) {
+        throw new Error('用户取消了操作');
+      }
+    }
+
+    // 使用RPC服务处理请求
+    const rpcResponse: RPCResponse = await rpcService.handleRequest(rpcRequest);
+
+    if (rpcResponse.error) {
+      throw new Error(rpcResponse.error.message);
+    }
+
+    const result = rpcResponse.result;
+
+    // 发送成功响应
+    sendResponse({
+      success: true,
+      data: result,
+      requestId,
+      from: 'background'
+    });
+
+    console.log('✅ EIP-1193请求处理成功:', method, result);
+
+  } catch (error) {
+    console.error('❌ EIP-1193请求处理失败:', method, error);
+
+    // 发送错误响应
+    sendResponse({
+      success: false,
+      error: error instanceof Error ? error.message : '未知错误',
+      requestId,
+      from: 'background'
+    });
+  }
+
+  return true; // 表示异步响应
+};
+
+/**
+ * 检查是否需要用户确认
+ */
+function requiresUserConfirmation(method: string): boolean {
+  const confirmationRequiredMethods = [
+    'eth_sendTransaction',
+    'personal_sign',
+    'eth_signTypedData_v4',
+    'wallet_switchEthereumChain',
+    'wallet_addEthereumChain'
+  ];
+
+  return confirmationRequiredMethods.includes(method);
+}
+
+/**
+ * 显示确认对话框（简化版本，实际应该创建确认页面）
+ */
+async function showConfirmationDialog(method: string, params: any[], tabId?: number): Promise<boolean> {
+  console.log(`🔄 需要用户确认: ${method}`, params);
+
+  // 这里应该创建一个确认页面或弹窗
+  // 目前简化处理，直接返回true
+  // 在实际应用中，你应该：
+  // 1. 创建一个确认页面
+  // 2. 显示交易/签名详情
+  // 3. 等待用户确认或取消
+  // 4. 返回用户的决定
+
+  return new Promise((resolve) => {
+    // 模拟用户确认（实际应该显示UI）
+    setTimeout(() => {
+      // 暂时自动确认，用于测试
+      console.log('✅ 用户确认操作');
+      resolve(true);
+    }, 100);
+  });
+}
 
 // 初始化钱包状态
 const initWallet = () => {
@@ -13,13 +121,18 @@ const initWallet = () => {
 
 // 注册消息监听器
 const setupMessageListener = () => {
-  console.log('🔄 监听来自 message-bridge 的消息');
+  console.log('🔄 监听来自 message-bridge 和 ethereum-provider 的消息');
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log("background 收到消息:", message.type, "来自标签页：", sender.tab?.id);
 
     const walletStore = useWalletStore.getState()
 
-    // 处理连接请求
+    // 处理EIP-1193标准请求
+    if (message.type === 'ETHEREUM_REQUEST') {
+      return handleEthereumRequest(message, sender, sendResponse)
+    }
+
+    // 处理连接请求 (向后兼容)
     if (message.type === constant.WALLET_CONNECT) {
       try {
         // 确保钱包已初始化
