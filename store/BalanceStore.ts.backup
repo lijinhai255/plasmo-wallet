@@ -1,0 +1,418 @@
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { Storage } from "@plasmohq/storage"
+import { ethers } from 'ethers'
+import { useChainStore } from './ChainStore'
+
+// 代币余额接口
+export interface TokenBalance {
+  symbol: string
+  name: string
+  decimals: number
+  balance: string
+  formattedBalance: string
+  contractAddress: string
+  logoURI?: string
+  priceUSD?: number
+  valueUSD?: number
+}
+
+// 账户余额状态接口
+export interface AccountBalance {
+  address: string
+  ethBalance: string
+  formattedEthBalance: string
+  ethPriceUSD?: number
+  ethValueUSD?: number
+  tokens: TokenBalance[]
+  totalValueUSD?: number
+  lastUpdated: number
+}
+
+// 余额查询状态接口
+interface BalanceStoreState {
+  // 状态
+  balances: Record<string, AccountBalance> // address -> AccountBalance
+  isLoading: boolean
+  error: string
+  selectedAccount: string
+
+  // 方法
+  updateSelectedAccount: (address: string) => void
+  fetchEthBalance: (address: string) => Promise<void>
+  fetchTokenBalance: (address: string, tokenAddress: string) => Promise<void>
+  fetchAllBalances: (address: string, tokenAddresses?: string[]) => Promise<void>
+  getBalanceByAddress: (address: string) => AccountBalance | undefined
+  clearBalances: () => void
+  refreshBalance: (address?: string) => Promise<void>
+}
+
+// ERC20 ABI (只包含需要的函数)
+const ERC20_ABI = [
+  // 查询余额
+  'function balanceOf(address owner) view returns (uint256)',
+  // 查询代币信息
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function decimals() view returns (uint8)'
+]
+
+// 常见代币合约地址 (Sepolia 测试网)
+const COMMON_TOKENS = {
+  // Sepolia 上的测试代币
+  '0xaf1dC8b5EeF71F764b0e9e568C5a5e6663A68531': 'TEST', // 示例测试代币
+  '0x779877A7B0D9E8603169DdbD7836e478b4624789': 'WETH', // Wrapped Ether
+}
+
+// 格式化余额
+const formatBalance = (balance: string, decimals: number): string => {
+  try {
+    const balanceBN = ethers.getBigInt(balance)
+    const divisor = ethers.getBigInt(10 ** decimals)
+    const beforeDecimal = balanceBN / divisor
+    const afterDecimal = balanceBN % divisor
+
+    if (afterDecimal === 0n) {
+      return beforeDecimal.toString()
+    }
+
+    // 最多显示6位小数
+    const afterDecimalStr = afterDecimal.toString().padStart(decimals, '0')
+    const trimmedAfterDecimal = afterDecimalStr.substring(0, 6).replace(/0+$/, '')
+
+    return `${beforeDecimal}.${trimmedAfterDecimal}`
+  } catch (error) {
+    console.error('格式化余额失败:', error)
+    return '0'
+  }
+}
+
+// 创建 Zustand store
+export const useBalanceStore = create<BalanceStoreState>()(
+  persist(
+    (set, get) => ({
+      // 初始状态
+      balances: {},
+      isLoading: false,
+      error: "",
+      selectedAccount: "",
+
+      // 更新选中的账户
+      updateSelectedAccount: (address: string) => {
+        set({ selectedAccount: address })
+      },
+
+      // 获取 ETH 余额 (暂时禁用网络请求，避免认证弹窗)
+      fetchEthBalance: async (address: string) => {
+        try {
+          set({ isLoading: true, error: "" })
+
+          console.log(`💰 暂时跳过 ETH 余额查询，避免认证弹窗: ${address}`)
+
+          // 模拟余额数据
+          const mockBalance = "1.234567890"
+          const selectedAccount = get().selectedAccount
+
+          if (selectedAccount) {
+            set(state => ({
+              balances: {
+                ...state.balances,
+                [selectedAccount]: {
+                  eth: mockBalance,
+                  tokens: state.balances[selectedAccount]?.tokens || []
+                }
+              }
+            }))
+          }
+
+          set({ isLoading: false })
+          console.log(`✅ 模拟 ETH 余额查询完成: ${mockBalance} ETH`)
+              balance = await Promise.race([
+                provider.getBalance(address),
+                timeoutPromise
+              ])
+
+              successfulRpcUrl = rpcUrl
+              console.log(`✅ RPC 连接成功: ${rpcUrl}`)
+              break
+
+            } catch (error) {
+              console.warn(`RPC ${rpcUrl} 连接失败:`, error)
+              lastError = error instanceof Error ? error : new Error("Unknown error")
+              continue
+            }
+          }
+
+          if (balance === null || !provider) {
+            throw lastError || new Error("所有 RPC 端点都无法连接")
+          }
+
+          const formattedBalance = ethers.formatEther(balance)
+
+          // 更新余额状态
+          const currentBalances = get().balances
+          const existingBalance = currentBalances[address] || {
+            address,
+            ethBalance: '0',
+            formattedEthBalance: '0',
+            tokens: [],
+            lastUpdated: 0
+          }
+
+          const updatedBalance: AccountBalance = {
+            ...existingBalance,
+            ethBalance: balance.toString(),
+            formattedEthBalance: formattedBalance,
+            lastUpdated: Date.now()
+          }
+
+          set({
+            balances: {
+              ...currentBalances,
+              [address]: updatedBalance
+            },
+            isLoading: false
+          })
+
+          console.log(`✅ ETH 余额查询成功: ${address} -> ${formattedBalance} ETH`)
+
+        } catch (error) {
+          console.error("获取 ETH 余额失败:", error)
+          const errorMessage = error instanceof Error ? error.message : "获取 ETH 余额失败"
+
+          // 提供更友好的错误信息
+          let userFriendlyError = errorMessage
+          if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch")) {
+            userFriendlyError = "网络连接失败，请检查网络连接或稍后重试"
+          } else if (errorMessage.includes("timeout")) {
+            userFriendlyError = "请求超时，请稍后重试"
+          } else if (errorMessage.includes("insufficient funds")) {
+            userFriendlyError = "余额不足"
+          }
+
+          set({
+            error: userFriendlyError,
+            isLoading: false
+          })
+
+          // 不抛出错误，让应用继续运行
+          // throw error
+        }
+      },
+
+      // 获取代币余额
+      fetchTokenBalance: async (address: string, tokenAddress: string) => {
+        try {
+          set({ isLoading: true, error: "" })
+
+          // 从 ChainStore 获取当前网络配置
+          const chainStore = useChainStore.getState()
+          const networkConfig = chainStore.getNetworkConfig(chainStore.currentChainId)
+
+          if (!networkConfig) {
+            throw new Error("网络配置未找到")
+          }
+
+          // 尝试多个 RPC 端点
+          let lastError: Error | null = null
+          let contract: ethers.Contract | null = null
+          let successfulRpcUrl = ""
+
+          for (const rpcUrl of networkConfig.rpcUrls) {
+            try {
+              console.log(`🔗 尝试连接 RPC (代币查询): ${rpcUrl}`)
+              const provider = new ethers.JsonRpcProvider(rpcUrl)
+              contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider)
+
+              // 设置较短的超时时间
+              const timeoutPromise = new Promise<never>((_, reject) => {
+                setTimeout(() => reject(new Error("代币查询超时")), 5000)
+              })
+
+              // 并行获取代币信息
+              const [balance, name, symbol, decimals] = await Promise.race([
+                Promise.all([
+                  contract.balanceOf(address),
+                  contract.name().catch(() => "Unknown Token"),
+                  contract.symbol().catch(() => "UNKNOWN"),
+                  contract.decimals().catch(() => 18)
+                ]),
+                timeoutPromise
+              ])
+
+              const formattedBalance = formatBalance(balance.toString(), Number(decimals))
+
+              // 更新代币余额
+              const currentBalances = get().balances
+              const existingBalance = currentBalances[address] || {
+                address,
+                ethBalance: '0',
+                formattedEthBalance: '0',
+                tokens: [],
+                lastUpdated: 0
+              }
+
+              const existingTokenIndex = existingBalance.tokens.findIndex(
+                token => token.contractAddress.toLowerCase() === tokenAddress.toLowerCase()
+              )
+
+              const tokenBalance: TokenBalance = {
+                name,
+                symbol,
+                decimals: Number(decimals),
+                balance: balance.toString(),
+                formattedBalance,
+                contractAddress: tokenAddress
+              }
+
+              const updatedTokens = [...existingBalance.tokens]
+              if (existingTokenIndex >= 0) {
+                updatedTokens[existingTokenIndex] = tokenBalance
+              } else {
+                updatedTokens.push(tokenBalance)
+              }
+
+              const updatedBalance: AccountBalance = {
+                ...existingBalance,
+                tokens: updatedTokens,
+                lastUpdated: Date.now()
+              }
+
+              set({
+                balances: {
+                  ...currentBalances,
+                  [address]: updatedBalance
+                },
+                isLoading: false
+              })
+
+              console.log(`✅ 代币余额查询成功: ${address} -> ${formattedBalance} ${symbol}`)
+              return // 成功后直接返回
+
+            } catch (error) {
+              console.warn(`代币 RPC ${rpcUrl} 查询失败:`, error)
+              lastError = error instanceof Error ? error : new Error("Unknown error")
+              continue
+            }
+          }
+
+          if (lastError) {
+            throw lastError
+          }
+
+        } catch (error) {
+          console.error("获取代币余额失败:", error)
+          const errorMessage = error instanceof Error ? error.message : "获取代币余额失败"
+
+          // 提供更友好的错误信息
+          let userFriendlyError = errorMessage
+          if (errorMessage.includes("Failed to fetch") || errorMessage.includes("fetch")) {
+            userFriendlyError = "网络连接失败，请检查网络连接或稍后重试"
+          } else if (errorMessage.includes("timeout")) {
+            userFriendlyError = "请求超时，请稍后重试"
+          } else if (errorMessage.includes("call revert")) {
+            userFriendlyError = "代币合约调用失败"
+          }
+
+          set({
+            error: userFriendlyError,
+            isLoading: false
+          })
+
+          // 不抛出错误，让应用继续运行
+          // throw error
+        }
+      },
+
+      // 获取所有余额 (ETH + 常见代币)
+      fetchAllBalances: async (address: string, tokenAddresses?: string[]) => {
+        try {
+          set({ isLoading: true, error: "" })
+
+          // 获取 ETH 余额
+          await get().fetchEthBalance(address)
+
+          // 获取代币余额
+          const tokensToQuery = tokenAddresses || Object.keys(COMMON_TOKENS)
+
+          for (const tokenAddress of tokensToQuery) {
+            try {
+              await get().fetchTokenBalance(address, tokenAddress)
+            } catch (error) {
+              console.warn(`获取代币 ${tokenAddress} 余额失败:`, error)
+              // 继续处理其他代币，不中断整个流程
+            }
+          }
+
+        } catch (error) {
+          console.error("获取所有余额失败:", error)
+          set({
+            error: error instanceof Error ? error.message : "获取所有余额失败",
+            isLoading: false
+          })
+          throw error
+        }
+      },
+
+      // 根据地址获取余额信息
+      getBalanceByAddress: (address: string) => {
+        return get().balances[address]
+      },
+
+      // 清除所有余额
+      clearBalances: () => {
+        set({ balances: {} })
+      },
+
+      // 刷新余额
+      refreshBalance: async (address?: string) => {
+        const targetAddress = address || get().selectedAccount
+        if (!targetAddress) {
+          throw new Error("没有指定要刷新的地址")
+        }
+
+        try {
+          await get().fetchAllBalances(targetAddress)
+          console.log(`🔄 余额刷新成功: ${targetAddress}`)
+        } catch (error) {
+          console.error("刷新余额失败:", error)
+          throw error
+        }
+      }
+    }),
+    {
+      name: 'balance-store',
+      partialize: (state) => ({
+        balances: state.balances,
+        selectedAccount: state.selectedAccount
+      })
+    }
+  )
+)
+
+// 导出类型
+export type BalanceStoreType = ReturnType<typeof useBalanceStore>
+
+// 工具函数
+export const formatAddress = (address: string, length: number = 6): string => {
+  if (!address || address.length < 10) return address
+  return `${address.substring(0, length)}...${address.substring(address.length - 4)}`
+}
+
+export const formatUSD = (value: number): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6
+  }).format(value)
+}
+
+// 获取常见代币列表
+export const getCommonTokens = (chainId: string): Record<string, string> => {
+  // 目前只支持 Sepolia 测试网
+  if (chainId === "11155111") {
+    return COMMON_TOKENS
+  }
+  return {}
+}
